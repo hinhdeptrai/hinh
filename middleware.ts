@@ -7,7 +7,7 @@ const JWT_SECRET = new TextEncoder().encode(
 
 export async function middleware(request: NextRequest) {
   // Public paths that don't require authentication
-  const publicPaths = ["/login", "/api/auth", "/debug"];
+  const publicPaths = ["/login", "/api/auth", "/api/scan-and-notify", "/api/scan"];
   
   const { pathname } = request.nextUrl;
   
