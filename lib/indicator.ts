@@ -205,7 +205,7 @@ const pivotLow = (low: number[], left: number, right: number) => {
 
 export async function fetchKlines(symbol: string, interval: string, limit = 500): Promise<Klines> {
   const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`
-  const res = await fetch(url, { next: { revalidate: 30 } })
+  const res = await fetch(url, { cache: 'no-store' })
   if (!res.ok) throw new Error(`Binance error ${res.status} ${res.statusText}`)
   const data = await res.json()
   const o = data.map((k: any[]) => toNum(k[1]) as number)
