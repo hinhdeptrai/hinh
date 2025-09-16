@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { AuthWrapper } from "@/components/auth-wrapper";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -38,6 +39,9 @@ import {
   XCircle,
   ArrowUpRight,
   ArrowDownRight,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
 } from "lucide-react";
 
 type IndicatorResponse = Awaited<
@@ -171,6 +175,18 @@ export default function Page() {
   const [newSymbol, setNewSymbol] = useState("");
   const [mainTF, setMainTF] = useState("4h");
   const [altTF, setAltTF] = useState("1h");
+
+  // Filter states
+  const [signalFilter, setSignalFilter] = useState<string>("all");
+  const [outcomeFilter, setOutcomeFilter] = useState<string>("all");
+  const [volumeFilter, setVolumeFilter] = useState<string>("all");
+  const [freshFilter, setFreshFilter] = useState<string>("all");
+  const [entryFilter, setEntryFilter] = useState<string>("all"); // Filter mới cho entry status
+
+  // Sort states
+  const [sortField, setSortField] = useState<string>("");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
   const ALT_NONE = "none";
   const intervals = useMemo(
     () => [mainTF, altTF].filter(Boolean),
@@ -181,7 +197,7 @@ export default function Page() {
     [symbols]
   );
 
-  // Sắp xếp symbols với priority: có signal trước, fresh signal trước, sau đó theo alphabet
+  // Sắp xếp và filter symbols với priority: có signal trước, fresh signal trước, sau đó theo alphabet
   const sortedVisibleSymbols = useMemo(() => {
     const symbolsWithData = visibleSymbols.map((symbol) => {
       const row = data[symbol] as any;
@@ -191,11 +207,115 @@ export default function Page() {
         isFresh: row && !row.error && row.isSignalFresh,
         signal: row && !row.error ? row.signal : "NONE",
         lastSignal: row && !row.error ? row.lastSignal : "NONE",
+        outcome: row && !row.error ? row.lastSignalOutcome : "NONE",
+        volumeConfirmed: row && !row.error ? row.volumeConfirmed : false,
+        data: row,
       };
     });
 
-    return symbolsWithData
+    // Apply filters
+    const filtered = symbolsWithData.filter((item) => {
+      // Signal filter (trở lại logic cũ)
+      if (signalFilter !== "all") {
+        if (signalFilter === "active" && !item.hasSignal) return false;
+        if (signalFilter === "buy" && item.signal !== "BUY") return false;
+        if (signalFilter === "sell" && item.signal !== "SELL") return false;
+        if (signalFilter === "none" && item.signal !== "NONE") return false;
+      }
+
+      // Entry filter (filter mới)
+      if (entryFilter !== "all") {
+        const hasLastSignal = item.lastSignal && item.lastSignal !== "NONE";
+        const hasOutcome = item.outcome && item.outcome !== "NONE";
+
+        if (entryFilter === "not_hit" && (!hasLastSignal || hasOutcome))
+          return false; // Chưa chạm entry
+        if (entryFilter === "hit" && (!hasLastSignal || !hasOutcome))
+          return false; // Đã chạm entry
+      }
+
+      // Outcome filter
+      if (outcomeFilter !== "all") {
+        if (
+          outcomeFilter === "win" &&
+          (!item.outcome || item.outcome === "NONE" || item.outcome === "SL")
+        )
+          return false;
+        if (outcomeFilter === "loss" && item.outcome !== "SL") return false;
+        if (
+          outcomeFilter === "pending" &&
+          item.outcome &&
+          item.outcome !== "NONE"
+        )
+          return false;
+      }
+
+      // Volume filter
+      if (volumeFilter !== "all") {
+        if (volumeFilter === "confirmed" && !item.volumeConfirmed) return false;
+        if (volumeFilter === "weak" && item.volumeConfirmed) return false;
+      }
+
+      // Fresh filter
+      if (freshFilter !== "all") {
+        if (freshFilter === "fresh" && !item.isFresh) return false;
+        if (freshFilter === "old" && item.isFresh) return false;
+      }
+
+      return true;
+    });
+
+    return filtered
       .sort((a, b) => {
+        // Apply custom sort if specified
+        if (sortField && sortField !== "") {
+          let aValue: any, bValue: any;
+
+          switch (sortField) {
+            case "symbol":
+              aValue = a.symbol;
+              bValue = b.symbol;
+              break;
+            case "price":
+              aValue = a.data?.close || 0;
+              bValue = b.data?.close || 0;
+              break;
+            case "signal":
+              const signalOrder = { BUY: 2, SELL: 1, NONE: 0 };
+              aValue = signalOrder[a.signal as keyof typeof signalOrder] || 0;
+              bValue = signalOrder[b.signal as keyof typeof signalOrder] || 0;
+              break;
+            case "age":
+              aValue = a.data?.signalAgeMinutes || 0;
+              bValue = b.data?.signalAgeMinutes || 0;
+              break;
+            case "bars":
+              aValue = a.data?.barsSinceSignal || 0;
+              bValue = b.data?.barsSinceSignal || 0;
+              break;
+            case "rsi":
+              aValue = a.data?.rsi2Sma7 || 0;
+              bValue = b.data?.rsi2Sma7 || 0;
+              break;
+            case "adx":
+              aValue = a.data?.adx || 0;
+              bValue = b.data?.adx || 0;
+              break;
+            default:
+              aValue = 0;
+              bValue = 0;
+          }
+
+          if (typeof aValue === "string" && typeof bValue === "string") {
+            const result = aValue.localeCompare(bValue);
+            return sortDirection === "asc" ? result : -result;
+          } else {
+            const result = (aValue as number) - (bValue as number);
+            return sortDirection === "asc" ? result : -result;
+          }
+        }
+
+        // Default sorting logic (unchanged)
         // 1. Có signal hiện tại trước (BUY/SELL)
         if (a.hasSignal !== b.hasSignal) {
           return a.hasSignal ? -1 : 1;
@@ -219,7 +339,17 @@ export default function Page() {
         return a.symbol.localeCompare(b.symbol);
       })
       .map((item) => item.symbol);
-  }, [visibleSymbols, data]);
+  }, [
+    visibleSymbols,
+    data,
+    signalFilter,
+    outcomeFilter,
+    volumeFilter,
+    freshFilter,
+    entryFilter,
+    sortField,
+    sortDirection,
+  ]);
 
   const fetchOne = async (symbol: string) => {
     const res = await fetch(
@@ -267,6 +397,51 @@ export default function Page() {
 
   const onRemove = (s: string) =>
     setSymbols((prev) => prev.filter((x) => x !== s));
+
+  // Sort handler
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      if (sortDirection === "desc") {
+        setSortDirection("asc");
+      } else {
+        // Reset sort if clicking same field twice
+        setSortField("");
+        setSortDirection("desc");
+      }
+    } else {
+      setSortField(field);
+      setSortDirection("desc");
+    }
+  };
+
+  // Sortable header component
+  const SortableHeader = ({
+    field,
+    children,
+    className = "",
+  }: {
+    field: string;
+    children: React.ReactNode;
+    className?: string;
+  }) => (
+    <TableHead
+      className={`cursor-pointer select-none hover:bg-muted/50 transition-colors ${className}`}
+      onClick={() => handleSort(field)}
+    >
+      <div className="flex items-center gap-1">
+        {children}
+        {sortField === field ? (
+          sortDirection === "desc" ? (
+            <ChevronDown className="h-4 w-4" />
+          ) : (
+            <ChevronUp className="h-4 w-4" />
+          )
+        ) : (
+          <ChevronsUpDown className="h-4 w-4 opacity-50" />
+        )}
+      </div>
+    </TableHead>
+  );
 
   const summary = useMemo(() => {
     const rows = Object.values(data).filter(
@@ -318,351 +493,895 @@ export default function Page() {
   }, [data, sortedVisibleSymbols.length]);
 
   return (
-    <TooltipProvider>
-      <div className="space-y-6">
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold">Bảng tín hiệu</h1>
-            <p className="text-sm text-muted-foreground">
-              Theo dõi tín hiệu BUY/SELL nhiều cặp Binance
-            </p>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 items-end">
+    <AuthWrapper>
+      <TooltipProvider>
+        <div className="space-y-6">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div className="space-y-1">
-              <Label>Khung chính</Label>
-              <Select value={mainTF} onValueChange={setMainTF}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Chọn TF" />
-                </SelectTrigger>
-                <SelectContent>
-                  {["15m", "30m", "1h", "4h", "1d"].map((tf) => (
-                    <SelectItem key={tf} value={tf}>
-                      {tf}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <h1 className="text-2xl font-semibold">Bảng tín hiệu</h1>
+              <p className="text-sm text-muted-foreground">
+                Theo dõi tín hiệu BUY/SELL nhiều cặp Binance
+              </p>
             </div>
-            <div className="space-y-1">
-              <Label>Khung phụ</Label>
-              <Select
-                value={altTF || ALT_NONE}
-                onValueChange={(v) => setAltTF(v === ALT_NONE ? "" : v)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Chọn TF" />
-                </SelectTrigger>
-                <SelectContent>
-                  {[ALT_NONE, "15m", "1h", "4h", "1d"].map((tf) => (
-                    <SelectItem key={tf} value={tf}>
-                      {tf === ALT_NONE ? "None" : tf}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label>Thêm symbol</Label>
-              <div className="flex gap-2">
-                <Input
-                  value={newSymbol}
-                  onChange={(e) => setNewSymbol(e.target.value)}
-                  placeholder="VD: ARBUSDT"
-                />
-                <Button onClick={onAddSymbol} variant="secondary">
-                  Thêm
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 items-end">
+              <div className="space-y-1">
+                <Label>Khung chính</Label>
+                <Select value={mainTF} onValueChange={setMainTF}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Chọn TF" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {["15m", "30m", "1h", "4h", "1d"].map((tf) => (
+                      <SelectItem key={tf} value={tf}>
+                        {tf}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Khung phụ</Label>
+                <Select
+                  value={altTF || ALT_NONE}
+                  onValueChange={(v) => setAltTF(v === ALT_NONE ? "" : v)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Chọn TF" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[ALT_NONE, "15m", "30m", "1h", "4h", "1d"].map((tf) => (
+                      <SelectItem key={tf} value={tf}>
+                        {tf === ALT_NONE ? "None" : tf}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Thêm symbol</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={newSymbol}
+                    onChange={(e) => setNewSymbol(e.target.value)}
+                    placeholder="VD: ARBUSDT"
+                  />
+                  <Button onClick={onAddSymbol} variant="secondary">
+                    Thêm
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="flex items-center gap-2">
+                  Auto refresh
+                  <Switch checked={auto} onCheckedChange={setAuto} />
+                </Label>
+                <Button onClick={load} disabled={loading} className="w-full">
+                  {loading ? "Đang tải..." : "Làm mới"}
                 </Button>
               </div>
             </div>
-            <div className="space-y-1">
-              <Label className="flex items-center gap-2">
-                Auto refresh
-                <Switch checked={auto} onCheckedChange={setAuto} />
-              </Label>
-              <Button onClick={load} disabled={loading} className="w-full">
-                {loading ? "Đang tải..." : "Làm mới"}
-              </Button>
-            </div>
           </div>
-        </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {loading ? (
-            // Loading skeleton for summary stats
-            Array.from({ length: 4 }, (_, i) => (
-              <div key={i} className="rounded-lg border p-3">
-                <Skeleton className="h-3 w-12 mb-2" />
-                <Skeleton className="h-7 w-8" />
-              </div>
-            ))
-          ) : (
-            <>
-              <Stat label="Tổng" value={summary.total} />
-              <Stat label="BUY" value={summary.buy} tone="success" />
-              <Stat label="SELL" value={summary.sell} tone="destructive" />
-              <Stat label="FRESH" value={summary.fresh} tone="info" />
-            </>
-          )}
-        </div>
-
-        {/* Thống kê Win/Loss */}
-        <Card>
-          <CardHeader className="py-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              📊 Thống kê Signal Performance
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {loading ? (
-              // Loading skeleton for performance stats
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-                  {Array.from({ length: 6 }, (_, i) => (
-                    <div key={i} className="rounded-lg border p-3">
-                      <Skeleton className="h-3 w-16 mb-2" />
-                      <Skeleton className="h-6 w-8 mb-1" />
-                      <Skeleton className="h-3 w-20" />
-                    </div>
-                  ))}
+              // Loading skeleton for summary stats
+              Array.from({ length: 4 }, (_, i) => (
+                <div key={i} className="rounded-lg border p-3">
+                  <Skeleton className="h-3 w-12 mb-2" />
+                  <Skeleton className="h-7 w-8" />
                 </div>
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <Skeleton className="h-4 w-32" />
-                    <Skeleton className="h-4 w-24" />
-                  </div>
-                  <Skeleton className="h-3 w-full rounded-full" />
-                </div>
-              </div>
+              ))
             ) : (
               <>
-                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-                  <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800 p-3">
-                    <div className="text-xs text-blue-600 dark:text-blue-400">
-                      Tổng Signal
-                    </div>
-                    <div className="mt-1 text-lg font-semibold text-blue-700 dark:text-blue-300">
-                      {summary.totalSignals}
-                    </div>
-                  </div>
-
-                  <div className="bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800 p-3">
-                    <div className="text-xs text-green-600 dark:text-green-400">
-                      WIN
-                    </div>
-                    <div className="mt-1 text-lg font-semibold text-green-700 dark:text-green-300">
-                      {summary.winSignals}
-                    </div>
-                    <div className="text-xs text-green-500 dark:text-green-400">
-                      TP1: {summary.tp1Hits} | TP2: {summary.tp2Hits} | TP3:{" "}
-                      {summary.tp3Hits}
-                    </div>
-                  </div>
-
-                  <div className="bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800 p-3">
-                    <div className="text-xs text-red-600 dark:text-red-400">
-                      LOSS
-                    </div>
-                    <div className="mt-1 text-lg font-semibold text-red-700 dark:text-red-300">
-                      {summary.lossSignals}
-                    </div>
-                    <div className="text-xs text-red-500 dark:text-red-400">
-                      Hit SL
-                    </div>
-                  </div>
-
-                  <div className="bg-yellow-50 dark:bg-yellow-950/20 rounded-lg border border-yellow-200 dark:border-yellow-800 p-3">
-                    <div className="text-xs text-yellow-600 dark:text-yellow-400">
-                      PENDING
-                    </div>
-                    <div className="mt-1 text-lg font-semibold text-yellow-700 dark:text-yellow-300">
-                      {summary.pendingSignals}
-                    </div>
-                    <div className="text-xs text-yellow-500 dark:text-yellow-400">
-                      Chờ kết quả
-                    </div>
-                  </div>
-
-                  <div className="bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200 dark:border-purple-800 p-3">
-                    <div className="text-xs text-purple-600 dark:text-purple-400">
-                      Win Rate
-                    </div>
-                    <div className="mt-1 text-lg font-semibold text-purple-700 dark:text-purple-300">
-                      {summary.winRate.toFixed(1)}%
-                    </div>
-                    <div className="text-xs text-purple-500 dark:text-purple-400">
-                      Tỉ lệ thắng
-                    </div>
-                  </div>
-
-                  <div className="bg-indigo-50 dark:bg-indigo-950/20 rounded-lg border border-indigo-200 dark:border-indigo-800 p-3">
-                    <div className="text-xs text-indigo-600 dark:text-indigo-400">
-                      Risk Ratio
-                    </div>
-                    <div className="mt-1 text-lg font-semibold text-indigo-700 dark:text-indigo-300">
-                      {summary.lossSignals > 0
-                        ? (summary.winSignals / summary.lossSignals).toFixed(2)
-                        : summary.winSignals > 0
-                        ? "∞"
-                        : "0"}
-                    </div>
-                    <div className="text-xs text-indigo-500 dark:text-indigo-400">
-                      Win:Loss
-                    </div>
-                  </div>
-                </div>
-
-                {/* Progress bar tổng quan */}
-                <div className="mt-4">
-                  <div className="flex items-center justify-between text-sm mb-2">
-                    <span className="text-muted-foreground">
-                      Performance Overview
-                    </span>
-                    <span className="text-muted-foreground">
-                      {summary.totalSignals > 0
-                        ? `${summary.winSignals}W / ${summary.lossSignals}L / ${summary.pendingSignals}P`
-                        : "Chưa có dữ liệu"}
-                    </span>
-                  </div>
-                  {summary.totalSignals > 0 && (
-                    <div className="flex h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                      <div
-                        className="bg-green-500 transition-all duration-300"
-                        style={{
-                          width: `${
-                            (summary.winSignals / summary.totalSignals) * 100
-                          }%`,
-                        }}
-                      />
-                      <div
-                        className="bg-red-500 transition-all duration-300"
-                        style={{
-                          width: `${
-                            (summary.lossSignals / summary.totalSignals) * 100
-                          }%`,
-                        }}
-                      />
-                      <div
-                        className="bg-yellow-500 transition-all duration-300"
-                        style={{
-                          width: `${
-                            (summary.pendingSignals / summary.totalSignals) *
-                            100
-                          }%`,
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
+                <Stat label="Tổng" value={summary.total} />
+                <Stat label="BUY" value={summary.buy} tone="success" />
+                <Stat label="SELL" value={summary.sell} tone="destructive" />
+                <Stat label="FRESH" value={summary.fresh} tone="info" />
               </>
             )}
-          </CardContent>
-        </Card>
+          </div>
 
-        <Card>
-          <CardHeader className="py-4">
-            <CardTitle className="text-base">Danh sách cặp</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Symbol</TableHead>
-                  <TableHead className="font-semibold">Giá</TableHead>
-                  <TableHead>Tín hiệu</TableHead>
-                  <TableHead>Last</TableHead>
-                  <TableHead>TF</TableHead>
-                  <TableHead>Trend</TableHead>
-                  <TableHead>Tuổi (giờ)</TableHead>
-                  <TableHead>Cách nến</TableHead>
-                  <TableHead>RSI</TableHead>
-                  <TableHead>ADX</TableHead>
-                  <TableHead className="text-right">Thao tác</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading
-                  ? // Loading skeleton for all rows
-                    Array.from({ length: 10 }, (_, i) => (
-                      <TableRow key={`loading-${i}`}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Skeleton className="h-[18px] w-[18px] rounded-full" />
-                            <Skeleton className="h-4 w-20" />
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-5 w-24" />
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Skeleton className="h-6 w-16" />
-                            <Skeleton className="h-4 w-4 rounded-full" />
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-2">
+          {/* Thống kê Win/Loss */}
+          <Card>
+            <CardHeader className="py-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                📊 Thống kê Signal Performance
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                // Loading skeleton for performance stats
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                    {Array.from({ length: 6 }, (_, i) => (
+                      <div key={i} className="rounded-lg border p-3">
+                        <Skeleton className="h-3 w-16 mb-2" />
+                        <Skeleton className="h-6 w-8 mb-1" />
+                        <Skeleton className="h-3 w-20" />
+                      </div>
+                    ))}
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-4 w-24" />
+                    </div>
+                    <Skeleton className="h-3 w-full rounded-full" />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                    <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800 p-3">
+                      <div className="text-xs text-blue-600 dark:text-blue-400">
+                        Tổng Signal
+                      </div>
+                      <div className="mt-1 text-lg font-semibold text-blue-700 dark:text-blue-300">
+                        {summary.totalSignals}
+                      </div>
+                    </div>
+
+                    <div className="bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800 p-3">
+                      <div className="text-xs text-green-600 dark:text-green-400">
+                        WIN
+                      </div>
+                      <div className="mt-1 text-lg font-semibold text-green-700 dark:text-green-300">
+                        {summary.winSignals}
+                      </div>
+                      <div className="text-xs text-green-500 dark:text-green-400">
+                        TP1: {summary.tp1Hits} | TP2: {summary.tp2Hits} | TP3:{" "}
+                        {summary.tp3Hits}
+                      </div>
+                    </div>
+
+                    <div className="bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800 p-3">
+                      <div className="text-xs text-red-600 dark:text-red-400">
+                        LOSS
+                      </div>
+                      <div className="mt-1 text-lg font-semibold text-red-700 dark:text-red-300">
+                        {summary.lossSignals}
+                      </div>
+                      <div className="text-xs text-red-500 dark:text-red-400">
+                        Hit SL
+                      </div>
+                    </div>
+
+                    <div className="bg-yellow-50 dark:bg-yellow-950/20 rounded-lg border border-yellow-200 dark:border-yellow-800 p-3">
+                      <div className="text-xs text-yellow-600 dark:text-yellow-400">
+                        PENDING
+                      </div>
+                      <div className="mt-1 text-lg font-semibold text-yellow-700 dark:text-yellow-300">
+                        {summary.pendingSignals}
+                      </div>
+                      <div className="text-xs text-yellow-500 dark:text-yellow-400">
+                        Chờ kết quả
+                      </div>
+                    </div>
+
+                    <div className="bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200 dark:border-purple-800 p-3">
+                      <div className="text-xs text-purple-600 dark:text-purple-400">
+                        Win Rate
+                      </div>
+                      <div className="mt-1 text-lg font-semibold text-purple-700 dark:text-purple-300">
+                        {summary.winRate.toFixed(1)}%
+                      </div>
+                      <div className="text-xs text-purple-500 dark:text-purple-400">
+                        Tỉ lệ thắng
+                      </div>
+                    </div>
+
+                    <div className="bg-indigo-50 dark:bg-indigo-950/20 rounded-lg border border-indigo-200 dark:border-indigo-800 p-3">
+                      <div className="text-xs text-indigo-600 dark:text-indigo-400">
+                        Risk Ratio
+                      </div>
+                      <div className="mt-1 text-lg font-semibold text-indigo-700 dark:text-indigo-300">
+                        {summary.lossSignals > 0
+                          ? (summary.winSignals / summary.lossSignals).toFixed(
+                              2
+                            )
+                          : summary.winSignals > 0
+                          ? "∞"
+                          : "0"}
+                      </div>
+                      <div className="text-xs text-indigo-500 dark:text-indigo-400">
+                        Win:Loss
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Progress bar tổng quan */}
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between text-sm mb-2">
+                      <span className="text-muted-foreground">
+                        Performance Overview
+                      </span>
+                      <span className="text-muted-foreground">
+                        {summary.totalSignals > 0
+                          ? `${summary.winSignals}W / ${summary.lossSignals}L / ${summary.pendingSignals}P`
+                          : "Chưa có dữ liệu"}
+                      </span>
+                    </div>
+                    {summary.totalSignals > 0 && (
+                      <div className="flex h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                        <div
+                          className="bg-green-500 transition-all duration-300"
+                          style={{
+                            width: `${
+                              (summary.winSignals / summary.totalSignals) * 100
+                            }%`,
+                          }}
+                        />
+                        <div
+                          className="bg-red-500 transition-all duration-300"
+                          style={{
+                            width: `${
+                              (summary.lossSignals / summary.totalSignals) * 100
+                            }%`,
+                          }}
+                        />
+                        <div
+                          className="bg-yellow-500 transition-all duration-300"
+                          style={{
+                            width: `${
+                              (summary.pendingSignals / summary.totalSignals) *
+                              100
+                            }%`,
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="py-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <CardTitle className="text-base">Danh sách cặp</CardTitle>
+
+                {/* Filter Controls */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <Label className="text-sm font-medium">Lọc:</Label>
+
+                  <Select value={signalFilter} onValueChange={setSignalFilter}>
+                    <SelectTrigger className="w-28">
+                      <SelectValue placeholder="Signal" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả</SelectItem>
+                      <SelectItem value="active">Có signal</SelectItem>
+                      <SelectItem value="buy">BUY</SelectItem>
+                      <SelectItem value="sell">SELL</SelectItem>
+                      <SelectItem value="none">NONE</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={entryFilter} onValueChange={setEntryFilter}>
+                    <SelectTrigger className="w-28">
+                      <SelectValue placeholder="Entry" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả</SelectItem>
+                      <SelectItem value="not_hit">Chưa chạm</SelectItem>
+                      <SelectItem value="hit">Đã chạm</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select
+                    value={outcomeFilter}
+                    onValueChange={setOutcomeFilter}
+                  >
+                    <SelectTrigger className="w-24">
+                      <SelectValue placeholder="Kết quả" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả</SelectItem>
+                      <SelectItem value="win">WIN</SelectItem>
+                      <SelectItem value="loss">LOSS</SelectItem>
+                      <SelectItem value="pending">Chờ</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={volumeFilter} onValueChange={setVolumeFilter}>
+                    <SelectTrigger className="w-24">
+                      <SelectValue placeholder="Volume" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả</SelectItem>
+                      <SelectItem value="confirmed">Tốt</SelectItem>
+                      <SelectItem value="weak">Yếu</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={freshFilter} onValueChange={setFreshFilter}>
+                    <SelectTrigger className="w-24">
+                      <SelectValue placeholder="Fresh" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả</SelectItem>
+                      <SelectItem value="fresh">Fresh</SelectItem>
+                      <SelectItem value="old">Cũ</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSignalFilter("all");
+                      setOutcomeFilter("all");
+                      setVolumeFilter("all");
+                      setFreshFilter("all");
+                      setEntryFilter("all");
+                      setSortField("");
+                      setSortDirection("desc");
+                    }}
+                    className="text-xs"
+                  >
+                    Reset All
+                  </Button>
+
+                  <div className="text-xs text-muted-foreground">
+                    {sortedVisibleSymbols.length} / {visibleSymbols.length} coin
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <SortableHeader field="symbol">Symbol</SortableHeader>
+                    <SortableHeader field="price" className="font-semibold">
+                      Giá
+                    </SortableHeader>
+                    <SortableHeader field="signal">Tín hiệu</SortableHeader>
+                    <TableHead>Last</TableHead>
+                    <TableHead>TF</TableHead>
+                    <TableHead>Trend</TableHead>
+                    <SortableHeader field="age">Tuổi (giờ)</SortableHeader>
+                    <SortableHeader field="bars">Cách nến</SortableHeader>
+                    <SortableHeader field="rsi">RSI</SortableHeader>
+                    <SortableHeader field="adx">ADX</SortableHeader>
+                    <TableHead className="text-right">Thao tác</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading
+                    ? // Loading skeleton for all rows
+                      Array.from({ length: 10 }, (_, i) => (
+                        <TableRow key={`loading-${i}`}>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Skeleton className="h-[18px] w-[18px] rounded-full" />
+                              <Skeleton className="h-4 w-20" />
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-5 w-24" />
+                          </TableCell>
+                          <TableCell>
                             <div className="flex items-center gap-2">
                               <Skeleton className="h-6 w-16" />
-                              <Skeleton className="h-4 w-16" />
+                              <Skeleton className="h-4 w-4 rounded-full" />
                             </div>
-                            <Skeleton className="h-3 w-20" />
-                            <Skeleton className="h-6 w-24" />
-                            <div className="space-y-1">
-                              <Skeleton className="h-4 w-32" />
-                              <Skeleton className="h-3 w-28" />
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-2">
                               <div className="flex items-center gap-2">
-                                <Skeleton className="h-1.5 flex-1" />
+                                <Skeleton className="h-6 w-16" />
+                                <Skeleton className="h-4 w-16" />
+                              </div>
+                              <Skeleton className="h-3 w-20" />
+                              <Skeleton className="h-6 w-24" />
+                              <div className="space-y-1">
+                                <Skeleton className="h-4 w-32" />
+                                <Skeleton className="h-3 w-28" />
+                                <div className="flex items-center gap-2">
+                                  <Skeleton className="h-1.5 flex-1" />
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-8" />
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Skeleton className="h-4 w-4" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-8" />
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Skeleton className="h-4 w-4" />
+                              <Skeleton className="h-4 w-12" />
+                            </div>
+                          </TableCell>
+                          <TableCell>
                             <Skeleton className="h-4 w-12" />
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-12" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-8" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-8" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-8" />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Skeleton className="h-8 w-16" />
-                            <Skeleton className="h-8 w-12" />
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  : sortedVisibleSymbols.map((s) => {
-                      const row = data[s] as any;
-                      if (!row)
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-8" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-8" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-8" />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Skeleton className="h-8 w-16" />
+                              <Skeleton className="h-8 w-12" />
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    : sortedVisibleSymbols.map((s) => {
+                        const row = data[s] as any;
+                        if (!row)
+                          return (
+                            <TableRow key={s}>
+                              <TableCell colSpan={11}>
+                                <Skeleton className="h-6 w-full" />
+                              </TableCell>
+                            </TableRow>
+                          );
+                        if (row.error)
+                          return (
+                            <TableRow key={s} className="opacity-70">
+                              <TableCell className="font-mono">{s}</TableCell>
+                              <TableCell
+                                colSpan={9}
+                                className="text-destructive"
+                              >
+                                Lỗi: {row.error}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => onRemove(s)}
+                                >
+                                  Xóa
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        const sig = row.signal;
+                        const sigBadge =
+                          sig === "BUY" ? (
+                            <Badge variant="success" className="gap-1">
+                              <ArrowUpRight className="h-3.5 w-3.5" /> BUY
+                            </Badge>
+                          ) : sig === "SELL" ? (
+                            <Badge variant="destructive" className="gap-1">
+                              <ArrowDownRight className="h-3.5 w-3.5" /> SELL
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="gap-1">
+                              <Minus className="h-3.5 w-3.5" /> NONE
+                            </Badge>
+                          );
+                        const age =
+                          row.signalAgeMinutes != null
+                            ? `${(row.signalAgeMinutes / 60).toFixed(1)}h`
+                            : "-";
+                        const trend = String(row.priceDirection || "");
                         return (
                           <TableRow key={s}>
-                            <TableCell colSpan={11}>
-                              <Skeleton className="h-6 w-full" />
+                            <TableCell className="font-mono">
+                              <span className="inline-flex items-center gap-2">
+                                <Image
+                                  src={logoUrl(row.symbol)}
+                                  alt={baseFromSymbol(row.symbol)}
+                                  width={18}
+                                  height={18}
+                                  className="rounded-full border"
+                                />
+                                <span className="uppercase tracking-wide">
+                                  {row.symbol}
+                                </span>
+                              </span>
                             </TableCell>
-                          </TableRow>
-                        );
-                      if (row.error)
-                        return (
-                          <TableRow key={s} className="opacity-70">
-                            <TableCell className="font-mono">{s}</TableCell>
-                            <TableCell colSpan={9} className="text-destructive">
-                              Lỗi: {row.error}
+                            <TableCell>
+                              <span className="font-bold text-lg text-foreground">
+                                {formatPrice(row.close)}
+                              </span>
                             </TableCell>
-                            <TableCell className="text-right">
+                            <TableCell className="space-x-2 flex items-center">
+                              {sigBadge}
+                              {row.isSignalFresh && (
+                                <Badge variant="info">FRESH</Badge>
+                              )}
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  {row.volumeConfirmed ? (
+                                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                  ) : (
+                                    <XCircle className="h-4 w-4 text-muted-foreground" />
+                                  )}
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {row.volumeConfirmed
+                                    ? "Volume OK"
+                                    : "Volume yếu"}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TableCell>
+                            <TableCell className="space-y-0.5">
+                              <div className="flex items-center gap-2">
+                                {row.lastSignal === "BUY" ? (
+                                  <Badge variant="success" className="gap-1">
+                                    <ArrowUpRight className="h-3.5 w-3.5" /> BUY
+                                  </Badge>
+                                ) : row.lastSignal === "SELL" ? (
+                                  <Badge
+                                    variant="destructive"
+                                    className="gap-1"
+                                  >
+                                    <ArrowDownRight className="h-3.5 w-3.5" />{" "}
+                                    SELL
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="secondary" className="gap-1">
+                                    <Minus className="h-3.5 w-3.5" /> NONE
+                                  </Badge>
+                                )}
+                                {row.lastSignalPrice != null && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="text-xs text-muted-foreground">
+                                        @ {formatPrice(row.lastSignalPrice)}
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <div className="space-y-1">
+                                        <div>
+                                          Entry:{" "}
+                                          {formatPrice(row.lastSignalPrice)}
+                                        </div>
+                                        {row.entryLevels?.sl != null && (
+                                          <div>
+                                            SL:{" "}
+                                            {formatPrice(row.entryLevels.sl)}
+                                          </div>
+                                        )}
+                                        {row.entryLevels?.tp1 != null && (
+                                          <div>
+                                            TP1:{" "}
+                                            {formatPrice(row.entryLevels.tp1)}
+                                          </div>
+                                        )}
+                                        {row.entryLevels?.tp2 != null && (
+                                          <div>
+                                            TP2:{" "}
+                                            {formatPrice(row.entryLevels.tp2)}
+                                          </div>
+                                        )}
+                                        {row.entryLevels?.tp3 != null && (
+                                          <div>
+                                            TP3:{" "}
+                                            {formatPrice(row.entryLevels.tp3)}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {row.barsSinceSignal ?? "-"} nến •
+                                {row.signalAgeMinutes != null
+                                  ? ` ${(row.signalAgeMinutes / 60).toFixed(
+                                      1
+                                    )}h`
+                                  : " -"}
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                <div className="text-xs">
+                                  {row.lastSignalOutcome &&
+                                  row.lastSignalOutcome !== "NONE" ? (
+                                    row.lastSignalOutcome === "SL" ? (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Badge
+                                            variant="destructive"
+                                            className="text-xs"
+                                          >
+                                            🎯 Hit SL
+                                          </Badge>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <div className="space-y-1">
+                                            <div>Đã chạm Stop Loss</div>
+                                            {row.lastSignalOutcomePrice && (
+                                              <div>
+                                                Tại giá:{" "}
+                                                {formatPrice(
+                                                  row.lastSignalOutcomePrice
+                                                )}
+                                              </div>
+                                            )}
+                                            {row.lastSignalOutcomeTime && (
+                                              <div>
+                                                Thời gian:{" "}
+                                                {new Date(
+                                                  row.lastSignalOutcomeTime
+                                                ).toLocaleString("vi-VN")}
+                                              </div>
+                                            )}
+                                          </div>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    ) : (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Badge
+                                            variant="success"
+                                            className="text-xs"
+                                          >
+                                            🎯 Hit {row.lastSignalOutcome}
+                                          </Badge>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <div className="space-y-1">
+                                            <div>
+                                              Đã chạm {row.lastSignalOutcome}
+                                            </div>
+                                            {row.lastSignalOutcomePrice && (
+                                              <div>
+                                                Tại giá:{" "}
+                                                {formatPrice(
+                                                  row.lastSignalOutcomePrice
+                                                )}
+                                              </div>
+                                            )}
+                                            {row.lastSignalOutcomeTime && (
+                                              <div>
+                                                Thời gian:{" "}
+                                                {new Date(
+                                                  row.lastSignalOutcomeTime
+                                                ).toLocaleString("vi-VN")}
+                                              </div>
+                                            )}
+                                          </div>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    )
+                                  ) : (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Badge
+                                          variant="secondary"
+                                          className="text-xs"
+                                        >
+                                          ⏳ Chưa chạm entry
+                                        </Badge>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <div className="space-y-1">
+                                          <div>
+                                            Chưa chạm mức SL hoặc TP nào
+                                          </div>
+                                          <div>
+                                            Giá hiện tại:{" "}
+                                            {formatPrice(row.close)}
+                                          </div>
+                                          {row.lastSignalPrice && (
+                                            <div>
+                                              Entry:{" "}
+                                              {formatPrice(row.lastSignalPrice)}
+                                            </div>
+                                          )}
+                                          {row.entryLevels?.sl != null && (
+                                            <div className="text-red-500">
+                                              SL:{" "}
+                                              {formatPrice(row.entryLevels.sl)}
+                                            </div>
+                                          )}
+                                          {row.entryLevels?.tp1 != null && (
+                                            <div className="text-green-500">
+                                              TP1:{" "}
+                                              {formatPrice(row.entryLevels.tp1)}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                </div>
+                                {/* Signal tracking từ mốc tín hiệu */}
+                                {row.lastSignalTime && (
+                                  <div className="text-xs space-y-1">
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-muted-foreground">
+                                        Theo dõi:
+                                      </span>
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs"
+                                      >
+                                        📊{" "}
+                                        {new Date(
+                                          row.lastSignalTime
+                                        ).toLocaleDateString("vi-VN")}{" "}
+                                        {new Date(
+                                          row.lastSignalTime
+                                        ).toLocaleTimeString("vi-VN", {
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                        })}
+                                      </Badge>
+                                    </div>
+                                    {row.lastSignalPrice && (
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-muted-foreground">
+                                          Entry:
+                                        </span>
+                                        <span className="font-mono text-xs">
+                                          {formatPrice(row.lastSignalPrice)}
+                                        </span>
+                                        <span className="text-muted-foreground">
+                                          →
+                                        </span>
+                                        <span className="font-mono text-xs">
+                                          {formatPrice(row.close)}
+                                        </span>
+                                        {(() => {
+                                          const entry = row.lastSignalPrice;
+                                          const current = row.close;
+                                          let change = 0;
+
+                                          if (row.lastSignal === "BUY") {
+                                            change =
+                                              ((current - entry) / entry) * 100;
+                                          } else if (
+                                            row.lastSignal === "SELL"
+                                          ) {
+                                            change =
+                                              ((entry - current) / entry) * 100;
+                                          }
+
+                                          if (Math.abs(change) < 0.01)
+                                            return null;
+
+                                          return (
+                                            <Badge
+                                              variant={
+                                                change >= 0
+                                                  ? "success"
+                                                  : "destructive"
+                                              }
+                                              className="text-xs ml-1"
+                                            >
+                                              {change >= 0 ? "+" : ""}
+                                              {change.toFixed(2)}%
+                                            </Badge>
+                                          );
+                                        })()}
+                                      </div>
+                                    )}
+                                    {/* Progress bar đến TP/SL */}
+                                    {row.lastSignalPrice && row.entryLevels && (
+                                      <div className="flex items-center gap-1">
+                                        {row.lastSignal === "BUY" &&
+                                        row.entryLevels.tp1 &&
+                                        row.entryLevels.sl
+                                          ? (() => {
+                                              const entry = row.lastSignalPrice;
+                                              const current = row.close;
+                                              const tp1 = row.entryLevels.tp1;
+                                              const sl = row.entryLevels.sl;
+
+                                              // Tính khoảng cách từ entry đến TP1 và SL
+                                              const totalRange = tp1 - sl;
+                                              const currentFromSL =
+                                                current - sl;
+                                              const progress = Math.max(
+                                                0,
+                                                Math.min(
+                                                  100,
+                                                  (currentFromSL / totalRange) *
+                                                    100
+                                                )
+                                              );
+
+                                              return (
+                                                <div className="flex items-center gap-2 w-full">
+                                                  <span className="text-red-400 text-xs">
+                                                    SL
+                                                  </span>
+                                                  <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+                                                    <div
+                                                      className="bg-gradient-to-r from-red-500 via-yellow-500 to-green-500 h-1.5 rounded-full transition-all duration-300"
+                                                      style={{
+                                                        width: `${progress}%`,
+                                                      }}
+                                                    />
+                                                  </div>
+                                                  <span className="text-green-400 text-xs">
+                                                    TP1
+                                                  </span>
+                                                </div>
+                                              );
+                                            })()
+                                          : row.lastSignal === "SELL" &&
+                                            row.entryLevels.tp1 &&
+                                            row.entryLevels.sl
+                                          ? (() => {
+                                              const entry = row.lastSignalPrice;
+                                              const current = row.close;
+                                              const tp1 = row.entryLevels.tp1;
+                                              const sl = row.entryLevels.sl;
+
+                                              // Với SELL, SL > entry > TP1
+                                              const totalRange = sl - tp1;
+                                              const currentFromTP1 =
+                                                current - tp1;
+                                              const progress = Math.max(
+                                                0,
+                                                Math.min(
+                                                  100,
+                                                  ((sl - current) /
+                                                    totalRange) *
+                                                    100
+                                                )
+                                              );
+
+                                              return (
+                                                <div className="flex items-center gap-2 w-full">
+                                                  <span className="text-green-400 text-xs">
+                                                    TP1
+                                                  </span>
+                                                  <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+                                                    <div
+                                                      className="bg-gradient-to-r from-green-500 via-yellow-500 to-red-500 h-1.5 rounded-full transition-all duration-300"
+                                                      style={{
+                                                        width: `${progress}%`,
+                                                      }}
+                                                    />
+                                                  </div>
+                                                  <span className="text-red-400 text-xs">
+                                                    SL
+                                                  </span>
+                                                </div>
+                                              );
+                                            })()
+                                          : null}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>{row.mainTF}</TableCell>
+                            <TableCell>
+                              <Trend direction={trend} />
+                            </TableCell>
+                            <TableCell>{age}</TableCell>
+                            <TableCell>{row.barsSinceSignal ?? "-"}</TableCell>
+                            <TableCell>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span>
+                                    {row.rsi2Sma7
+                                      ? Number(row.rsi2Sma7).toFixed(1)
+                                      : "-"}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>{row.rsiStatus}</TooltipContent>
+                              </Tooltip>
+                            </TableCell>
+                            <TableCell>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span>
+                                    {row.adx ? Number(row.adx).toFixed(1) : "-"}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>{row.adxStatus}</TooltipContent>
+                              </Tooltip>
+                            </TableCell>
+                            <TableCell className="text-right space-x-2">
+                              <IndicatorDetails data={row} />
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -673,447 +1392,14 @@ export default function Page() {
                             </TableCell>
                           </TableRow>
                         );
-                      const sig = row.signal;
-                      const sigBadge =
-                        sig === "BUY" ? (
-                          <Badge variant="success" className="gap-1">
-                            <ArrowUpRight className="h-3.5 w-3.5" /> BUY
-                          </Badge>
-                        ) : sig === "SELL" ? (
-                          <Badge variant="destructive" className="gap-1">
-                            <ArrowDownRight className="h-3.5 w-3.5" /> SELL
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="gap-1">
-                            <Minus className="h-3.5 w-3.5" /> NONE
-                          </Badge>
-                        );
-                      const age =
-                        row.signalAgeMinutes != null
-                          ? `${(row.signalAgeMinutes / 60).toFixed(1)}h`
-                          : "-";
-                      const trend = String(row.priceDirection || "");
-                      return (
-                        <TableRow key={s}>
-                          <TableCell className="font-mono">
-                            <span className="inline-flex items-center gap-2">
-                              <Image
-                                src={logoUrl(row.symbol)}
-                                alt={baseFromSymbol(row.symbol)}
-                                width={18}
-                                height={18}
-                                className="rounded-full border"
-                              />
-                              <span className="uppercase tracking-wide">
-                                {row.symbol}
-                              </span>
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <span className="font-bold text-lg text-foreground">
-                              {formatPrice(row.close)}
-                            </span>
-                          </TableCell>
-                          <TableCell className="space-x-2 flex items-center">
-                            {sigBadge}
-                            {row.isSignalFresh && (
-                              <Badge variant="info">FRESH</Badge>
-                            )}
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                {row.volumeConfirmed ? (
-                                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                ) : (
-                                  <XCircle className="h-4 w-4 text-muted-foreground" />
-                                )}
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                {row.volumeConfirmed
-                                  ? "Volume OK"
-                                  : "Volume yếu"}
-                              </TooltipContent>
-                            </Tooltip>
-                          </TableCell>
-                          <TableCell className="space-y-0.5">
-                            <div className="flex items-center gap-2">
-                              {row.lastSignal === "BUY" ? (
-                                <Badge variant="success" className="gap-1">
-                                  <ArrowUpRight className="h-3.5 w-3.5" /> BUY
-                                </Badge>
-                              ) : row.lastSignal === "SELL" ? (
-                                <Badge variant="destructive" className="gap-1">
-                                  <ArrowDownRight className="h-3.5 w-3.5" />{" "}
-                                  SELL
-                                </Badge>
-                              ) : (
-                                <Badge variant="secondary" className="gap-1">
-                                  <Minus className="h-3.5 w-3.5" /> NONE
-                                </Badge>
-                              )}
-                              {row.lastSignalPrice != null && (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="text-xs text-muted-foreground">
-                                      @ {formatPrice(row.lastSignalPrice)}
-                                    </span>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <div className="space-y-1">
-                                      <div>
-                                        Entry:{" "}
-                                        {formatPrice(row.lastSignalPrice)}
-                                      </div>
-                                      {row.entryLevels?.sl != null && (
-                                        <div>
-                                          SL: {formatPrice(row.entryLevels.sl)}
-                                        </div>
-                                      )}
-                                      {row.entryLevels?.tp1 != null && (
-                                        <div>
-                                          TP1:{" "}
-                                          {formatPrice(row.entryLevels.tp1)}
-                                        </div>
-                                      )}
-                                      {row.entryLevels?.tp2 != null && (
-                                        <div>
-                                          TP2:{" "}
-                                          {formatPrice(row.entryLevels.tp2)}
-                                        </div>
-                                      )}
-                                      {row.entryLevels?.tp3 != null && (
-                                        <div>
-                                          TP3:{" "}
-                                          {formatPrice(row.entryLevels.tp3)}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </TooltipContent>
-                                </Tooltip>
-                              )}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {row.barsSinceSignal ?? "-"} nến •
-                              {row.signalAgeMinutes != null
-                                ? ` ${(row.signalAgeMinutes / 60).toFixed(1)}h`
-                                : " -"}
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              <div className="text-xs">
-                                {row.lastSignalOutcome &&
-                                row.lastSignalOutcome !== "NONE" ? (
-                                  row.lastSignalOutcome === "SL" ? (
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Badge
-                                          variant="destructive"
-                                          className="text-xs"
-                                        >
-                                          🎯 Hit SL
-                                        </Badge>
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        <div className="space-y-1">
-                                          <div>Đã chạm Stop Loss</div>
-                                          {row.lastSignalOutcomePrice && (
-                                            <div>
-                                              Tại giá:{" "}
-                                              {formatPrice(
-                                                row.lastSignalOutcomePrice
-                                              )}
-                                            </div>
-                                          )}
-                                          {row.lastSignalOutcomeTime && (
-                                            <div>
-                                              Thời gian:{" "}
-                                              {new Date(
-                                                row.lastSignalOutcomeTime
-                                              ).toLocaleString("vi-VN")}
-                                            </div>
-                                          )}
-                                        </div>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  ) : (
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Badge
-                                          variant="success"
-                                          className="text-xs"
-                                        >
-                                          🎯 Hit {row.lastSignalOutcome}
-                                        </Badge>
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        <div className="space-y-1">
-                                          <div>
-                                            Đã chạm {row.lastSignalOutcome}
-                                          </div>
-                                          {row.lastSignalOutcomePrice && (
-                                            <div>
-                                              Tại giá:{" "}
-                                              {formatPrice(
-                                                row.lastSignalOutcomePrice
-                                              )}
-                                            </div>
-                                          )}
-                                          {row.lastSignalOutcomeTime && (
-                                            <div>
-                                              Thời gian:{" "}
-                                              {new Date(
-                                                row.lastSignalOutcomeTime
-                                              ).toLocaleString("vi-VN")}
-                                            </div>
-                                          )}
-                                        </div>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  )
-                                ) : (
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Badge
-                                        variant="secondary"
-                                        className="text-xs"
-                                      >
-                                        ⏳ Chưa chạm entry
-                                      </Badge>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <div className="space-y-1">
-                                        <div>Chưa chạm mức SL hoặc TP nào</div>
-                                        <div>
-                                          Giá hiện tại: {formatPrice(row.close)}
-                                        </div>
-                                        {row.lastSignalPrice && (
-                                          <div>
-                                            Entry:{" "}
-                                            {formatPrice(row.lastSignalPrice)}
-                                          </div>
-                                        )}
-                                        {row.entryLevels?.sl != null && (
-                                          <div className="text-red-500">
-                                            SL:{" "}
-                                            {formatPrice(row.entryLevels.sl)}
-                                          </div>
-                                        )}
-                                        {row.entryLevels?.tp1 != null && (
-                                          <div className="text-green-500">
-                                            TP1:{" "}
-                                            {formatPrice(row.entryLevels.tp1)}
-                                          </div>
-                                        )}
-                                      </div>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                )}
-                              </div>
-                              {/* Signal tracking từ mốc tín hiệu */}
-                              {row.lastSignalTime && (
-                                <div className="text-xs space-y-1">
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-muted-foreground">
-                                      Theo dõi:
-                                    </span>
-                                    <Badge
-                                      variant="outline"
-                                      className="text-xs"
-                                    >
-                                      📊{" "}
-                                      {new Date(
-                                        row.lastSignalTime
-                                      ).toLocaleDateString("vi-VN")}{" "}
-                                      {new Date(
-                                        row.lastSignalTime
-                                      ).toLocaleTimeString("vi-VN", {
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                      })}
-                                    </Badge>
-                                  </div>
-                                  {row.lastSignalPrice && (
-                                    <div className="flex items-center gap-1">
-                                      <span className="text-muted-foreground">
-                                        Entry:
-                                      </span>
-                                      <span className="font-mono text-xs">
-                                        {formatPrice(row.lastSignalPrice)}
-                                      </span>
-                                      <span className="text-muted-foreground">
-                                        →
-                                      </span>
-                                      <span className="font-mono text-xs">
-                                        {formatPrice(row.close)}
-                                      </span>
-                                      {(() => {
-                                        const entry = row.lastSignalPrice;
-                                        const current = row.close;
-                                        let change = 0;
-
-                                        if (row.lastSignal === "BUY") {
-                                          change =
-                                            ((current - entry) / entry) * 100;
-                                        } else if (row.lastSignal === "SELL") {
-                                          change =
-                                            ((entry - current) / entry) * 100;
-                                        }
-
-                                        if (Math.abs(change) < 0.01)
-                                          return null;
-
-                                        return (
-                                          <Badge
-                                            variant={
-                                              change >= 0
-                                                ? "success"
-                                                : "destructive"
-                                            }
-                                            className="text-xs ml-1"
-                                          >
-                                            {change >= 0 ? "+" : ""}
-                                            {change.toFixed(2)}%
-                                          </Badge>
-                                        );
-                                      })()}
-                                    </div>
-                                  )}
-                                  {/* Progress bar đến TP/SL */}
-                                  {row.lastSignalPrice && row.entryLevels && (
-                                    <div className="flex items-center gap-1">
-                                      {row.lastSignal === "BUY" &&
-                                      row.entryLevels.tp1 &&
-                                      row.entryLevels.sl
-                                        ? (() => {
-                                            const entry = row.lastSignalPrice;
-                                            const current = row.close;
-                                            const tp1 = row.entryLevels.tp1;
-                                            const sl = row.entryLevels.sl;
-
-                                            // Tính khoảng cách từ entry đến TP1 và SL
-                                            const totalRange = tp1 - sl;
-                                            const currentFromSL = current - sl;
-                                            const progress = Math.max(
-                                              0,
-                                              Math.min(
-                                                100,
-                                                (currentFromSL / totalRange) *
-                                                  100
-                                              )
-                                            );
-
-                                            return (
-                                              <div className="flex items-center gap-2 w-full">
-                                                <span className="text-red-400 text-xs">
-                                                  SL
-                                                </span>
-                                                <div className="flex-1 bg-gray-200 rounded-full h-1.5">
-                                                  <div
-                                                    className="bg-gradient-to-r from-red-500 via-yellow-500 to-green-500 h-1.5 rounded-full transition-all duration-300"
-                                                    style={{
-                                                      width: `${progress}%`,
-                                                    }}
-                                                  />
-                                                </div>
-                                                <span className="text-green-400 text-xs">
-                                                  TP1
-                                                </span>
-                                              </div>
-                                            );
-                                          })()
-                                        : row.lastSignal === "SELL" &&
-                                          row.entryLevels.tp1 &&
-                                          row.entryLevels.sl
-                                        ? (() => {
-                                            const entry = row.lastSignalPrice;
-                                            const current = row.close;
-                                            const tp1 = row.entryLevels.tp1;
-                                            const sl = row.entryLevels.sl;
-
-                                            // Với SELL, SL > entry > TP1
-                                            const totalRange = sl - tp1;
-                                            const currentFromTP1 =
-                                              current - tp1;
-                                            const progress = Math.max(
-                                              0,
-                                              Math.min(
-                                                100,
-                                                ((sl - current) / totalRange) *
-                                                  100
-                                              )
-                                            );
-
-                                            return (
-                                              <div className="flex items-center gap-2 w-full">
-                                                <span className="text-green-400 text-xs">
-                                                  TP1
-                                                </span>
-                                                <div className="flex-1 bg-gray-200 rounded-full h-1.5">
-                                                  <div
-                                                    className="bg-gradient-to-r from-green-500 via-yellow-500 to-red-500 h-1.5 rounded-full transition-all duration-300"
-                                                    style={{
-                                                      width: `${progress}%`,
-                                                    }}
-                                                  />
-                                                </div>
-                                                <span className="text-red-400 text-xs">
-                                                  SL
-                                                </span>
-                                              </div>
-                                            );
-                                          })()
-                                        : null}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>{row.mainTF}</TableCell>
-                          <TableCell>
-                            <Trend direction={trend} />
-                          </TableCell>
-                          <TableCell>{age}</TableCell>
-                          <TableCell>{row.barsSinceSignal ?? "-"}</TableCell>
-                          <TableCell>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span>
-                                  {row.rsi2Sma7
-                                    ? Number(row.rsi2Sma7).toFixed(1)
-                                    : "-"}
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent>{row.rsiStatus}</TooltipContent>
-                            </Tooltip>
-                          </TableCell>
-                          <TableCell>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span>
-                                  {row.adx ? Number(row.adx).toFixed(1) : "-"}
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent>{row.adxStatus}</TooltipContent>
-                            </Tooltip>
-                          </TableCell>
-                          <TableCell className="text-right space-x-2">
-                            <IndicatorDetails data={row} />
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => onRemove(s)}
-                            >
-                              Xóa
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </div>
-    </TooltipProvider>
+                      })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+      </TooltipProvider>
+    </AuthWrapper>
   );
 }
 

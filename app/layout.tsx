@@ -1,5 +1,6 @@
 import "./globals.css";
 import { ReactNode } from "react";
+import MainLayout from "@/components/main-layout";
 
 export const metadata = {
   title: "Trade Admin Panel",
@@ -22,14 +23,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         />
       </head>
       <body className="font-montserrat">
-        <div className="min-h-screen">
-          <header className="border-b sticky top-0 z-10 bg-background/80 backdrop-blur">
-            <div className="container flex h-14 items-center justify-between">
-              <div className="font-semibold">Trade Admin</div>
-            </div>
-          </header>
-          <main className="container py-6">{children}</main>
-        </div>
+        <MainLayout>{children}</MainLayout>
       </body>
     </html>
   );
