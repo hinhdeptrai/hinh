@@ -511,7 +511,7 @@ export default function Page() {
                     <SelectValue placeholder="Chọn TF" />
                   </SelectTrigger>
                   <SelectContent>
-                    {["15m", "30m", "1h", "4h", "1d"].map((tf) => (
+                    {["5m", "15m", "30m", "1h", "4h", "1d"].map((tf) => (
                       <SelectItem key={tf} value={tf}>
                         {tf}
                       </SelectItem>
@@ -529,7 +529,7 @@ export default function Page() {
                     <SelectValue placeholder="Chọn TF" />
                   </SelectTrigger>
                   <SelectContent>
-                    {[ALT_NONE, "15m", "30m", "1h", "4h", "1d"].map((tf) => (
+                    {[ALT_NONE, "5m","15m", "30m", "1h", "4h", "1d"].map((tf) => (
                       <SelectItem key={tf} value={tf}>
                         {tf === ALT_NONE ? "None" : tf}
                       </SelectItem>

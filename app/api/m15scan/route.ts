@@ -34,14 +34,16 @@ function formatTelegramHTML(r: any) {
     e.tp1 != null ? `🟩 TP1: <code>${fmt(e.tp1)}</code> (${pctDiff(r.close, e.tp1) ?? '-'})` : null,
     e.tp2 != null ? `🟩 TP2: <code>${fmt(e.tp2)}</code> (${pctDiff(r.close, e.tp2) ?? '-'})` : null,
     e.tp3 != null ? `🟩 TP3: <code>${fmt(e.tp3)}</code> (${pctDiff(r.close, e.tp3) ?? '-'})` : null,
+    (e as any).tp4 != null ? `🟩 TP4: <code>${fmt((e as any).tp4)}</code> (${pctDiff(r.close, (e as any).tp4) ?? '-'})` : null,
+    (e as any).tp5 != null ? `🟩 TP5: <code>${fmt((e as any).tp5)}</code> (${pctDiff(r.close, (e as any).tp5) ?? '-'})` : null,
+    (e as any).tp6 != null ? `🟩 TP6: <code>${fmt((e as any).tp6)}</code> (${pctDiff(r.close, (e as any).tp6) ?? '-'})` : null,
   ].filter(Boolean)
   const lines = [
     `<b>${sigEmoji} ${r.signal} ${r.symbol.toUpperCase()} (${r.mainTF})</b> ${trendEmoji}`,
     `Giá: <b>${fmt(r.close)}</b>` + (age ? `  •  ${age}` : ''),
     `⚪ Entry: <code>${fmt(e.entry)}</code> (${pctDiff(r.close, e.entry) ?? '-'})`,
     ...tpLines,
-    `🟥 SL: <code>${fmt(e.sl)}</code> (${pctDiff(r.close, e.sl) ?? '-'})`,
-    `RSI2: <b>${r.rsi2Sma7 != null ? Number(r.rsi2Sma7).toFixed(1) : '-'}</b>  •  ADX14: <b>${r.adx != null ? Number(r.adx).toFixed(1) : '-'}</b>`,
+  `🟥 SL: <code>${fmt(e.sl)}</code> (${pctDiff(r.close, e.sl) ?? '-'})`,
     r.lastSignal && r.lastSignalPrice != null ? `Last: <b>${r.lastSignal}</b> @ <code>${fmt(r.lastSignalPrice)}</code>` : undefined,
   ].filter(Boolean)
   return { text: lines.join('\n'), parse_mode: 'HTML' as const, photo: logoUrl(r.symbol) }
