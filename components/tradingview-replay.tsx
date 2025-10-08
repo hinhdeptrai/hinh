@@ -157,60 +157,64 @@ export function TradingViewReplay({
 
       // Add price lines for levels
       if (entryPrice && !candleSeriesRef.current._entryLine) {
-        candleSeriesRef.current._entryLine = candleSeriesRef.current.createPriceLine({
-          price: entryPrice,
-          color: "#6b7280",
-          lineWidth: 2,
-          lineStyle: 2,
-          axisLabelVisible: true,
-          title: "Entry",
-        });
+        candleSeriesRef.current._entryLine =
+          candleSeriesRef.current.createPriceLine({
+            price: entryPrice,
+            color: "#6b7280",
+            lineWidth: 2,
+            lineStyle: 2,
+            axisLabelVisible: true,
+            title: "Entry",
+          });
       }
 
       if (slPrice && !candleSeriesRef.current._slLine) {
-        candleSeriesRef.current._slLine = candleSeriesRef.current.createPriceLine({
-          price: slPrice,
-          color: "#ef4444",
-          lineWidth: 2,
-          lineStyle: 2,
-          axisLabelVisible: true,
-          title: "SL",
-        });
+        candleSeriesRef.current._slLine =
+          candleSeriesRef.current.createPriceLine({
+            price: slPrice,
+            color: "#ef4444",
+            lineWidth: 2,
+            lineStyle: 2,
+            axisLabelVisible: true,
+            title: "SL",
+          });
       }
 
       if (tp1Price && !candleSeriesRef.current._tp1Line) {
-        candleSeriesRef.current._tp1Line = candleSeriesRef.current.createPriceLine({
-          price: tp1Price,
-          color: "#16a34a",
-          lineWidth: 2,
-          lineStyle: 2,
-          axisLabelVisible: true,
-          title: "TP1",
-        });
+        candleSeriesRef.current._tp1Line =
+          candleSeriesRef.current.createPriceLine({
+            price: tp1Price,
+            color: "#16a34a",
+            lineWidth: 2,
+            lineStyle: 2,
+            axisLabelVisible: true,
+            title: "TP1",
+          });
       }
 
       if (tp2Price && !candleSeriesRef.current._tp2Line) {
-        candleSeriesRef.current._tp2Line = candleSeriesRef.current.createPriceLine({
-          price: tp2Price,
-          color: "#16a34a",
-          lineWidth: 2,
-          lineStyle: 2,
-          axisLabelVisible: true,
-          title: "TP2",
-        });
+        candleSeriesRef.current._tp2Line =
+          candleSeriesRef.current.createPriceLine({
+            price: tp2Price,
+            color: "#16a34a",
+            lineWidth: 2,
+            lineStyle: 2,
+            axisLabelVisible: true,
+            title: "TP2",
+          });
       }
 
       if (tp3Price && !candleSeriesRef.current._tp3Line) {
-        candleSeriesRef.current._tp3Line = candleSeriesRef.current.createPriceLine({
-          price: tp3Price,
-          color: "#16a34a",
-          lineWidth: 2,
-          lineStyle: 2,
-          axisLabelVisible: true,
-          title: "TP3",
-        });
+        candleSeriesRef.current._tp3Line =
+          candleSeriesRef.current.createPriceLine({
+            price: tp3Price,
+            color: "#16a34a",
+            lineWidth: 2,
+            lineStyle: 2,
+            axisLabelVisible: true,
+            title: "TP3",
+          });
       }
-
     } else {
       setShowEntry(false);
     }
@@ -222,7 +226,16 @@ export function TradingViewReplay({
     if (chartRef.current) {
       chartRef.current.timeScale().fitContent();
     }
-  }, [currentIndex, data, entryPrice, slPrice, tp1Price, tp2Price, tp3Price, entryIndex]);
+  }, [
+    currentIndex,
+    data,
+    entryPrice,
+    slPrice,
+    tp1Price,
+    tp2Price,
+    tp3Price,
+    entryIndex,
+  ]);
 
   // Play/Pause logic
   useEffect(() => {
@@ -379,15 +392,24 @@ export function TradingViewReplay({
       {/* Legend */}
       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
         <div className="flex items-center gap-1">
-          <div className="w-3 h-0.5 bg-gray-500" style={{ borderTop: "2px dashed" }} />
+          <div
+            className="w-3 h-0.5 bg-gray-500"
+            style={{ borderTop: "2px dashed" }}
+          />
           <span>Entry</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-3 h-0.5 bg-red-500" style={{ borderTop: "2px dashed" }} />
+          <div
+            className="w-3 h-0.5 bg-red-500"
+            style={{ borderTop: "2px dashed" }}
+          />
           <span>SL</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-3 h-0.5 bg-green-500" style={{ borderTop: "2px dashed" }} />
+          <div
+            className="w-3 h-0.5 bg-green-500"
+            style={{ borderTop: "2px dashed" }}
+          />
           <span>TP1-3</span>
         </div>
         <div className="flex items-center gap-1">

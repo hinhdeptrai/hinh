@@ -147,7 +147,11 @@ export function TradingViewChart({
     }
 
     // Add marker for entry candle
-    if (entryIndex !== undefined && entryIndex >= 0 && formattedData[entryIndex]) {
+    if (
+      entryIndex !== undefined &&
+      entryIndex >= 0 &&
+      formattedData[entryIndex]
+    ) {
       candleSeries.setMarkers([
         {
           time: formattedData[entryIndex].time,
@@ -195,15 +199,24 @@ export function TradingViewChart({
       />
       <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
         <div className="flex items-center gap-1">
-          <div className="w-3 h-0.5 bg-gray-500" style={{ borderTop: "2px dashed" }} />
+          <div
+            className="w-3 h-0.5 bg-gray-500"
+            style={{ borderTop: "2px dashed" }}
+          />
           <span>Entry</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-3 h-0.5 bg-red-500" style={{ borderTop: "2px dashed" }} />
+          <div
+            className="w-3 h-0.5 bg-red-500"
+            style={{ borderTop: "2px dashed" }}
+          />
           <span>SL</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-3 h-0.5 bg-green-500" style={{ borderTop: "2px dashed" }} />
+          <div
+            className="w-3 h-0.5 bg-green-500"
+            style={{ borderTop: "2px dashed" }}
+          />
           <span>TP1-3</span>
         </div>
         <div className="flex items-center gap-1">

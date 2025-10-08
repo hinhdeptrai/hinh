@@ -239,18 +239,22 @@ function PriceMovementChart({ data }: { data: IndicatorResponse }) {
 
         // Tìm index của nến signal (nếu có)
         let signalCandleIndex = -1;
-        if (data.lastSignalTime && data.barsSinceSignal != null && data.barsSinceSignal >= 0) {
+        if (
+          data.lastSignalTime &&
+          data.barsSinceSignal != null &&
+          data.barsSinceSignal >= 0
+        ) {
           // Nến signal = nến cuối - barsSinceSignal
           signalCandleIndex = klines.length - 1 - data.barsSinceSignal;
         }
 
         // Format: [timestamp, open, high, low, close, volume, ...]
         const formatted = klines.map((k: any[], idx: number) => ({
-          time: new Date(k[0]).toLocaleString('vi-VN', {
-            hour: '2-digit',
-            minute: '2-digit',
-            day: '2-digit',
-            month: '2-digit'
+          time: new Date(k[0]).toLocaleString("vi-VN", {
+            hour: "2-digit",
+            minute: "2-digit",
+            day: "2-digit",
+            month: "2-digit",
           }),
           timestamp: k[0],
           open: parseFloat(k[1]),
@@ -260,13 +264,14 @@ function PriceMovementChart({ data }: { data: IndicatorResponse }) {
           isSignalCandle: idx === signalCandleIndex, // Đánh dấu nến signal
         }));
 
-        console.log('Chart data:', {
+        console.log("Chart data:", {
           total: formatted.length,
           signalCandleIndex,
           barsSinceSignal: data.barsSinceSignal,
           firstCandle: formatted[0]?.time,
           lastCandle: formatted[formatted.length - 1]?.time,
-          signalCandle: signalCandleIndex >= 0 ? formatted[signalCandleIndex]?.time : 'N/A'
+          signalCandle:
+            signalCandleIndex >= 0 ? formatted[signalCandleIndex]?.time : "N/A",
         });
 
         setPriceData(formatted);
@@ -349,18 +354,22 @@ function PriceMovementChartOld({ data }: { data: IndicatorResponse }) {
 
         // Tìm index của nến signal (nếu có)
         let signalCandleIndex = -1;
-        if (data.lastSignalTime && data.barsSinceSignal != null && data.barsSinceSignal >= 0) {
+        if (
+          data.lastSignalTime &&
+          data.barsSinceSignal != null &&
+          data.barsSinceSignal >= 0
+        ) {
           // Nến signal = nến cuối - barsSinceSignal
           signalCandleIndex = klines.length - 1 - data.barsSinceSignal;
         }
 
         // Format: [timestamp, open, high, low, close, volume, ...]
         const formatted = klines.map((k: any[], idx: number) => ({
-          time: new Date(k[0]).toLocaleString('vi-VN', {
-            hour: '2-digit',
-            minute: '2-digit',
-            day: '2-digit',
-            month: '2-digit'
+          time: new Date(k[0]).toLocaleString("vi-VN", {
+            hour: "2-digit",
+            minute: "2-digit",
+            day: "2-digit",
+            month: "2-digit",
           }),
           timestamp: k[0],
           open: parseFloat(k[1]),
@@ -370,13 +379,14 @@ function PriceMovementChartOld({ data }: { data: IndicatorResponse }) {
           isSignalCandle: idx === signalCandleIndex, // Đánh dấu nến signal
         }));
 
-        console.log('Chart data:', {
+        console.log("Chart data:", {
           total: formatted.length,
           signalCandleIndex,
           barsSinceSignal: data.barsSinceSignal,
           firstCandle: formatted[0]?.time,
           lastCandle: formatted[formatted.length - 1]?.time,
-          signalCandle: signalCandleIndex >= 0 ? formatted[signalCandleIndex]?.time : 'N/A'
+          signalCandle:
+            signalCandleIndex >= 0 ? formatted[signalCandleIndex]?.time : "N/A",
         });
 
         setPriceData(formatted);
@@ -426,7 +436,10 @@ function PriceMovementChartOld({ data }: { data: IndicatorResponse }) {
       </div>
 
       <ResponsiveContainer width="100%" height={400}>
-        <ComposedChart data={priceData} margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
+        <ComposedChart
+          data={priceData}
+          margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
+        >
           <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
           <XAxis
             dataKey="time"
@@ -437,29 +450,47 @@ function PriceMovementChartOld({ data }: { data: IndicatorResponse }) {
             interval={Math.floor(priceData.length / 10) || 1}
           />
           <YAxis
-            domain={['dataMin - 1%', 'dataMax + 1%']}
+            domain={["dataMin - 1%", "dataMax + 1%"]}
             tick={{ fontSize: 11 }}
-            tickFormatter={(val) => val >= 1000 ? val.toFixed(0) : val.toFixed(4)}
+            tickFormatter={(val) =>
+              val >= 1000 ? val.toFixed(0) : val.toFixed(4)
+            }
           />
           <RechartsTooltip
             content={({ active, payload }) => {
               if (active && payload && payload.length) {
                 const d = payload[0].payload;
                 return (
-                  <div style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                    border: '1px solid #ccc',
-                    borderRadius: '8px',
-                    padding: '10px',
-                    fontSize: '11px'
-                  }}>
-                    <div style={{ fontWeight: 'bold', marginBottom: '4px', color: d.isSignalCandle ? '#f59e0b' : '#000' }}>
-                      {d.time} {d.isSignalCandle ? '🔔 SIGNAL' : ''}
+                  <div
+                    style={{
+                      backgroundColor: "rgba(255, 255, 255, 0.95)",
+                      border: "1px solid #ccc",
+                      borderRadius: "8px",
+                      padding: "10px",
+                      fontSize: "11px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontWeight: "bold",
+                        marginBottom: "4px",
+                        color: d.isSignalCandle ? "#f59e0b" : "#000",
+                      }}
+                    >
+                      {d.time} {d.isSignalCandle ? "🔔 SIGNAL" : ""}
                     </div>
-                    <div style={{ color: '#16a34a' }}>O: {d.open?.toFixed(6)}</div>
-                    <div style={{ color: '#2563eb' }}>H: {d.high?.toFixed(6)}</div>
-                    <div style={{ color: '#ef4444' }}>L: {d.low?.toFixed(6)}</div>
-                    <div style={{ fontWeight: 'bold' }}>C: {d.close?.toFixed(6)}</div>
+                    <div style={{ color: "#16a34a" }}>
+                      O: {d.open?.toFixed(6)}
+                    </div>
+                    <div style={{ color: "#2563eb" }}>
+                      H: {d.high?.toFixed(6)}
+                    </div>
+                    <div style={{ color: "#ef4444" }}>
+                      L: {d.low?.toFixed(6)}
+                    </div>
+                    <div style={{ fontWeight: "bold" }}>
+                      C: {d.close?.toFixed(6)}
+                    </div>
                   </div>
                 );
               }
@@ -474,7 +505,13 @@ function PriceMovementChartOld({ data }: { data: IndicatorResponse }) {
               stroke="#6b7280"
               strokeWidth={2}
               strokeDasharray="5 5"
-              label={{ value: 'Entry', position: 'right', fontSize: 11, fill: '#6b7280', fontWeight: 'bold' }}
+              label={{
+                value: "Entry",
+                position: "right",
+                fontSize: 11,
+                fill: "#6b7280",
+                fontWeight: "bold",
+              }}
             />
           )}
           {slPrice && (
@@ -483,7 +520,13 @@ function PriceMovementChartOld({ data }: { data: IndicatorResponse }) {
               stroke="#ef4444"
               strokeWidth={2}
               strokeDasharray="3 3"
-              label={{ value: 'SL', position: 'right', fontSize: 11, fill: '#ef4444', fontWeight: 'bold' }}
+              label={{
+                value: "SL",
+                position: "right",
+                fontSize: 11,
+                fill: "#ef4444",
+                fontWeight: "bold",
+              }}
             />
           )}
           {tp1Price && (
@@ -492,7 +535,12 @@ function PriceMovementChartOld({ data }: { data: IndicatorResponse }) {
               stroke="#16a34a"
               strokeWidth={1.5}
               strokeDasharray="3 3"
-              label={{ value: 'TP1', position: 'right', fontSize: 10, fill: '#16a34a' }}
+              label={{
+                value: "TP1",
+                position: "right",
+                fontSize: 10,
+                fill: "#16a34a",
+              }}
             />
           )}
           {tp2Price && (
@@ -502,7 +550,12 @@ function PriceMovementChartOld({ data }: { data: IndicatorResponse }) {
               strokeWidth={1.5}
               strokeDasharray="3 3"
               strokeOpacity={0.7}
-              label={{ value: 'TP2', position: 'right', fontSize: 10, fill: '#16a34a' }}
+              label={{
+                value: "TP2",
+                position: "right",
+                fontSize: 10,
+                fill: "#16a34a",
+              }}
             />
           )}
           {tp3Price && (
@@ -512,7 +565,12 @@ function PriceMovementChartOld({ data }: { data: IndicatorResponse }) {
               strokeWidth={1.5}
               strokeDasharray="3 3"
               strokeOpacity={0.5}
-              label={{ value: 'TP3', position: 'right', fontSize: 10, fill: '#16a34a' }}
+              label={{
+                value: "TP3",
+                position: "right",
+                fontSize: 10,
+                fill: "#16a34a",
+              }}
             />
           )}
 
@@ -568,19 +626,28 @@ function PriceMovementChartOld({ data }: { data: IndicatorResponse }) {
           <span className="font-medium">🔔 Nến signal</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-4 h-0.5 bg-gray-500" style={{ borderTop: '2px dashed' }} />
+          <div
+            className="w-4 h-0.5 bg-gray-500"
+            style={{ borderTop: "2px dashed" }}
+          />
           <span>Entry</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-4 h-0.5 bg-red-500" style={{ borderTop: '2px dashed' }} />
+          <div
+            className="w-4 h-0.5 bg-red-500"
+            style={{ borderTop: "2px dashed" }}
+          />
           <span>SL</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-4 h-0.5 bg-green-500" style={{ borderTop: '2px dashed' }} />
+          <div
+            className="w-4 h-0.5 bg-green-500"
+            style={{ borderTop: "2px dashed" }}
+          />
           <span>TP1-3</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-4 h-0.5 bg-blue-600" style={{ height: '3px' }} />
+          <div className="w-4 h-0.5 bg-blue-600" style={{ height: "3px" }} />
           <span>Close</span>
         </div>
         <div className="flex items-center gap-1">
@@ -631,18 +698,19 @@ function SignalPerformanceChart({ data }: { data: IndicatorResponse }) {
   const isLoss = outcome === "SL";
   const isPending = hasSignal && outcome === "NONE";
 
-  const winCount = stats ? Number(stats.wins || 0) : (isWin ? 1 : 0);
-  const lossCount = stats ? Number(stats.losses || 0) : (isLoss ? 1 : 0);
-  const pendingCount = stats ? Number(stats.pending || 0) : (isPending ? 1 : 0);
+  const winCount = stats ? Number(stats.wins || 0) : isWin ? 1 : 0;
+  const lossCount = stats ? Number(stats.losses || 0) : isLoss ? 1 : 0;
+  const pendingCount = stats ? Number(stats.pending || 0) : isPending ? 1 : 0;
   const total = winCount + lossCount + pendingCount;
 
   const chartData = [
     { name: "WIN", value: winCount, color: "#16a34a" },
     { name: "LOSS", value: lossCount, color: "#ef4444" },
     { name: "PENDING", value: pendingCount, color: "#eab308" },
-  ].filter(item => item.value > 0);
+  ].filter((item) => item.value > 0);
 
-  const winRate = (winCount + lossCount) > 0 ? (winCount / (winCount + lossCount)) * 100 : 0;
+  const winRate =
+    winCount + lossCount > 0 ? (winCount / (winCount + lossCount)) * 100 : 0;
 
   if (loading) {
     return (
@@ -669,7 +737,10 @@ function SignalPerformanceChart({ data }: { data: IndicatorResponse }) {
       <div className="text-sm font-semibold mb-3 flex items-center gap-2">
         📊 Signal Performance
         {outcome !== "NONE" && (
-          <Badge variant={isWin ? "success" : "destructive"} className="text-xs">
+          <Badge
+            variant={isWin ? "success" : "destructive"}
+            className="text-xs"
+          >
             {outcome}
           </Badge>
         )}
@@ -707,7 +778,9 @@ function SignalPerformanceChart({ data }: { data: IndicatorResponse }) {
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <div className="text-sm text-muted-foreground">Không có dữ liệu</div>
+            <div className="text-sm text-muted-foreground">
+              Không có dữ liệu
+            </div>
           )}
         </div>
 
@@ -715,7 +788,9 @@ function SignalPerformanceChart({ data }: { data: IndicatorResponse }) {
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-2 border border-green-200 dark:border-green-800">
-              <div className="text-xs text-green-600 dark:text-green-400">WIN</div>
+              <div className="text-xs text-green-600 dark:text-green-400">
+                WIN
+              </div>
               <div className="text-xl font-bold text-green-700 dark:text-green-300">
                 {winCount}
               </div>
@@ -756,33 +831,48 @@ function SignalPerformanceChart({ data }: { data: IndicatorResponse }) {
         <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
           <div className="text-center">
             <div className="text-muted-foreground">TP1</div>
-            <div className="font-semibold text-green-600">{stats.tp1_count || 0}</div>
+            <div className="font-semibold text-green-600">
+              {stats.tp1_count || 0}
+            </div>
           </div>
           <div className="text-center">
             <div className="text-muted-foreground">TP2</div>
-            <div className="font-semibold text-green-600">{stats.tp2_count || 0}</div>
+            <div className="font-semibold text-green-600">
+              {stats.tp2_count || 0}
+            </div>
           </div>
           <div className="text-center">
             <div className="text-muted-foreground">TP3</div>
-            <div className="font-semibold text-green-600">{stats.tp3_count || 0}</div>
+            <div className="font-semibold text-green-600">
+              {stats.tp3_count || 0}
+            </div>
           </div>
           <div className="text-center">
             <div className="text-muted-foreground">TP4</div>
-            <div className="font-semibold text-green-600">{stats.tp4_count || 0}</div>
+            <div className="font-semibold text-green-600">
+              {stats.tp4_count || 0}
+            </div>
           </div>
           <div className="text-center">
             <div className="text-muted-foreground">TP5</div>
-            <div className="font-semibold text-green-600">{stats.tp5_count || 0}</div>
+            <div className="font-semibold text-green-600">
+              {stats.tp5_count || 0}
+            </div>
           </div>
           <div className="text-center">
             <div className="text-muted-foreground">TP6</div>
-            <div className="font-semibold text-green-600">{stats.tp6_count || 0}</div>
+            <div className="font-semibold text-green-600">
+              {stats.tp6_count || 0}
+            </div>
           </div>
         </div>
       )}
 
       <div className="mt-3 text-xs text-muted-foreground">
-        💡 {stats ? `Tổng ${total} signal đã tracking từ database` : "Hiển thị outcome của signal gần nhất"}
+        💡{" "}
+        {stats
+          ? `Tổng ${total} signal đã tracking từ database`
+          : "Hiển thị outcome của signal gần nhất"}
       </div>
     </div>
   );
