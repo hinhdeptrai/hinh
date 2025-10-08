@@ -23,7 +23,6 @@ export const DEFAULT_SYMBOLS: string[] = [
   "UNIUSDT",
   "XMRUSDT",
   "MNTUSDT",
-  "DAIUSDT",
   "WLFIUSDT",
   "ENAUSDT",
   "AAVEUSDT",

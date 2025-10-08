@@ -73,7 +73,6 @@ const DEFAULT_SYMBOLS = [
   "UNIUSDT",
   "XMRUSDT",
   "MNTUSDT",
-  "DAIUSDT",
   "WLFIUSDT",
   "ENAUSDT",
   "AAVEUSDT",
@@ -186,6 +185,9 @@ export default function Page() {
   // Sort states
   const [sortField, setSortField] = useState<string>("");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
+  // Global indicator state
+  const [globalIndicator, setGlobalIndicator] = useState<string>("FIBONACCI_ALGO");
 
   const ALT_NONE = "none";
   const intervals = useMemo(
@@ -352,11 +354,21 @@ export default function Page() {
   ]);
 
   const fetchOne = async (symbol: string) => {
-    const res = await fetch(
-      `/api/indicator?symbol=${symbol}&intervals=${intervals.join(",")}`
-    );
+    // Use new multi-indicator API
+    const res = await fetch('/api/scan-v2', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        symbol,
+        timeframe: mainTF,
+        indicator_type: globalIndicator,
+        limit: 500,
+      }),
+    });
+
     if (!res.ok) throw new Error(await res.text());
-    return res.json() as Promise<IndicatorResponse>;
+    const result = await res.json();
+    return result.data as IndicatorResponse;
   };
 
   const load = async () => {
@@ -384,7 +396,7 @@ export default function Page() {
     const id = setInterval(load, 60_000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [symbols.join(","), auto, intervals.join(",")]);
+  }, [symbols.join(","), auto, intervals.join(","), globalIndicator]); // Auto-reload when indicator changes
 
   const onAddSymbol = () => {
     const s = newSymbol.toUpperCase().trim();
@@ -397,6 +409,108 @@ export default function Page() {
 
   const onRemove = (s: string) =>
     setSymbols((prev) => prev.filter((x) => x !== s));
+
+  const queueSignal = async (row: IndicatorResponse) => {
+    try {
+      const payload = {
+        symbol: row.symbol,
+        timeframe: row.mainTF,
+        signal_type: row.signal,
+        entry_price: row.lastSignalPrice || row.close,
+        sl_price: row.entryLevels?.sl,
+        tp1_price: row.entryLevels?.tp1,
+        tp2_price: row.entryLevels?.tp2,
+        tp3_price: row.entryLevels?.tp3,
+        tp4_price: (row.entryLevels as any)?.tp4,
+        tp5_price: (row.entryLevels as any)?.tp5,
+        tp6_price: (row.entryLevels as any)?.tp6,
+        signal_time: row.lastSignalTime || new Date().toISOString(),
+        is_fresh: row.isSignalFresh,
+        volume_confirmed: row.volumeConfirmed,
+      };
+
+      console.log("Queueing signal:", payload);
+
+      const res = await fetch("/api/queue-signal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        const result = await res.json();
+        console.log("Queue signal result:", result);
+        alert(
+          `✅ Đã thêm vào queue!\n\n` +
+          `Nến sẽ đóng lúc: ${result.data.candle_close_time_iso}\n` +
+          `Thời gian chờ: ~${result.data.wait_time_minutes} phút`
+        );
+      } else {
+        const error = await res.json();
+        console.error("Queue signal error:", error);
+        alert(`❌ Lỗi: ${error.error || "Unknown error"}`);
+      }
+    } catch (e: any) {
+      console.error("Queue signal exception:", e);
+      alert(`❌ Lỗi: ${e.message}`);
+    }
+  };
+
+  const trackSignal = async (row: IndicatorResponse) => {
+    try {
+      // Important: Only track signals from confirmed (closed) candles
+      // If barsSinceSignal is 0, the signal is on the current unclosed candle
+      if (row.barsSinceSignal === 0) {
+        const confirmed = confirm(
+          "⚠️ Cảnh báo: Signal đang ở nến hiện tại chưa đóng!\n\n" +
+          "Nến có thể thay đổi trước khi đóng, dẫn đến thời gian entry không chính xác.\n\n" +
+          "Bạn có chắc chắn muốn track signal này không?"
+        );
+        if (!confirmed) return;
+      }
+
+      const payload = {
+        action: "store",
+        symbol: row.symbol,
+        timeframe: row.mainTF,
+        signal_type: row.signal,
+        entry_price: row.lastSignalPrice || row.close,
+        sl_price: row.entryLevels?.sl,
+        tp1_price: row.entryLevels?.tp1,
+        tp2_price: row.entryLevels?.tp2,
+        tp3_price: row.entryLevels?.tp3,
+        tp4_price: (row.entryLevels as any)?.tp4,
+        tp5_price: (row.entryLevels as any)?.tp5,
+        tp6_price: (row.entryLevels as any)?.tp6,
+        entry_time: row.lastSignalTime || new Date().toISOString(),
+        is_fresh: row.isSignalFresh,
+        volume_confirmed: row.volumeConfirmed,
+      };
+
+      console.log("Tracking signal:", payload);
+
+      const res = await fetch("/api/track-signal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      console.log("Track signal response:", res.status, res.ok);
+
+      if (res.ok) {
+        const result = await res.json();
+        console.log("Track signal result:", result);
+        alert("✅ Đã lưu signal vào danh sách theo dõi!");
+      } else {
+        const error = await res.json();
+        console.error("Track signal error:", error);
+        alert(`❌ Lỗi: ${error.error || "Unknown error"}`);
+      }
+    } catch (e: any) {
+      console.error("Track signal exception:", e);
+      alert(`❌ Lỗi: ${e.message}`);
+    }
+  };
 
   // Sort handler
   const handleSort = (field: string) => {
@@ -743,6 +857,21 @@ export default function Page() {
 
                 {/* Filter Controls */}
                 <div className="flex flex-wrap items-center gap-2">
+                  <Label className="text-sm font-medium">Indicator:</Label>
+                  <Select value={globalIndicator} onValueChange={setGlobalIndicator}>
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="Chọn indicator" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MACD_BB">🏆 MACD + BB (78%)</SelectItem>
+                      <SelectItem value="RSI_MACD_EMA">⭐ RSI + MACD + EMA (73%)</SelectItem>
+                      <SelectItem value="FIBONACCI_ALGO">🎯 Fibonacci Algo</SelectItem>
+                      <SelectItem value="RSI_VOLUME_BB">📊 RSI + Volume + BB (70%)</SelectItem>
+                      <SelectItem value="SUPERTREND_EMA">📈 Supertrend + EMA (65%)</SelectItem>
+                      <SelectItem value="EMA_CROSS_RSI">EMA Cross + RSI (60%)</SelectItem>
+                    </SelectContent>
+                  </Select>
+
                   <Label className="text-sm font-medium">Lọc:</Label>
 
                   <Select value={signalFilter} onValueChange={setSignalFilter}>
@@ -1382,6 +1511,28 @@ export default function Page() {
                             </TableCell>
                             <TableCell className="text-right space-x-2">
                               <IndicatorDetails data={row} />
+                              {(row.signal === "BUY" || row.signal === "SELL") && row.isSignalFresh && (
+                                <>
+                                  {row.barsSinceSignal === 0 ? (
+                                    <Button
+                                      variant="secondary"
+                                      size="sm"
+                                      onClick={() => queueSignal(row)}
+                                      title="Thêm vào queue, tự động track khi nến đóng"
+                                    >
+                                      ⏱️ Queue
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      variant="default"
+                                      size="sm"
+                                      onClick={() => trackSignal(row)}
+                                    >
+                                      Theo dõi
+                                    </Button>
+                                  )}
+                                </>
+                              )}
                               <Button
                                 variant="outline"
                                 size="sm"

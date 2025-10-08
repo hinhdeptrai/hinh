@@ -1,0 +1,58 @@
+import { NextRequest } from "next/server";
+import { query } from "@/lib/db";
+
+export async function GET(req: NextRequest) {
+  try {
+    console.log("Running migration...");
+
+    const createTableSQL = `
+      CREATE TABLE IF NOT EXISTS signal_history (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        symbol VARCHAR(20) NOT NULL,
+        timeframe VARCHAR(10) NOT NULL,
+        signal_type ENUM('BUY', 'SELL') NOT NULL,
+        entry_price DECIMAL(20, 8) NOT NULL,
+        sl_price DECIMAL(20, 8),
+        tp1_price DECIMAL(20, 8),
+        tp2_price DECIMAL(20, 8),
+        tp3_price DECIMAL(20, 8),
+        tp4_price DECIMAL(20, 8),
+        tp5_price DECIMAL(20, 8),
+        tp6_price DECIMAL(20, 8),
+        outcome ENUM('TP1', 'TP2', 'TP3', 'TP4', 'TP5', 'TP6', 'SL', 'NONE') DEFAULT 'NONE',
+        outcome_price DECIMAL(20, 8),
+        entry_time TIMESTAMP NOT NULL,
+        exit_time TIMESTAMP NULL,
+        bars_duration INT,
+        is_fresh BOOLEAN DEFAULT FALSE,
+        volume_confirmed BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_symbol (symbol),
+        INDEX idx_timeframe (timeframe),
+        INDEX idx_entry_time (entry_time),
+        INDEX idx_outcome (outcome),
+        INDEX idx_symbol_tf (symbol, timeframe)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `;
+
+    await query(createTableSQL);
+
+    console.log("Migration completed successfully");
+
+    return Response.json({
+      success: true,
+      message: "Signal history table created successfully",
+    });
+  } catch (e: any) {
+    console.error("Migration error:", e);
+    return Response.json(
+      {
+        success: false,
+        error: e.message,
+        stack: e.stack,
+      },
+      { status: 500 }
+    );
+  }
+}
