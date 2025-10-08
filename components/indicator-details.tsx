@@ -25,6 +25,12 @@ import {
   ResponsiveContainer,
   Legend,
   Tooltip as RechartsTooltip,
+  ComposedChart,
+  Line,
+  ReferenceLine,
+  XAxis,
+  YAxis,
+  CartesianGrid,
 } from "recharts";
 import { TradingViewChart } from "./tradingview-chart";
 
@@ -549,7 +555,7 @@ function PriceMovementChartOld({ data }: { data: IndicatorResponse }) {
                   />
                 );
               }
-              return null;
+              return <circle cx={props.cx} cy={props.cy} r={0} />;
             }}
             activeDot={{ r: 6 }}
           />

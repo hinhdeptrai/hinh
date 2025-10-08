@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { IndicatorFactory, fetchKlines } from "@/lib/indicators/factory"
+import type { IndicatorType } from "@/lib/indicators/types"
 
 export const dynamic = "force-dynamic"
 
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
     // Validate indicator type
     let indicator
     try {
-      indicator = IndicatorFactory.create(indicator_type)
+      indicator = IndicatorFactory.create(indicator_type as IndicatorType)
     } catch (e: any) {
       return NextResponse.json(
         { error: `Invalid indicator type: ${e.message}` },
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
 
     // Analyze with selected indicator
     const result = await IndicatorFactory.analyzeWithIndicator(
-      indicator_type,
+      indicator_type as IndicatorType,
       klineData,
       symbol.toUpperCase(),
       timeframe
@@ -92,7 +93,7 @@ export async function GET(req: NextRequest) {
     // Validate indicator type
     let indicator
     try {
-      indicator = IndicatorFactory.create(indicator_type)
+      indicator = IndicatorFactory.create(indicator_type as IndicatorType)
     } catch (e: any) {
       return NextResponse.json(
         { error: `Invalid indicator type: ${e.message}` },
@@ -105,7 +106,7 @@ export async function GET(req: NextRequest) {
 
     // Analyze
     const result = await IndicatorFactory.analyzeWithIndicator(
-      indicator_type,
+      indicator_type as IndicatorType,
       klineData,
       symbol.toUpperCase(),
       timeframe

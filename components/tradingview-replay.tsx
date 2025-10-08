@@ -56,7 +56,7 @@ export function TradingViewReplay({
       width: chartContainerRef.current.clientWidth,
       height: 500,
       layout: {
-        backgroundColor: "#ffffff",
+        background: { color: "#ffffff" },
         textColor: "#333",
       },
       grid: {
@@ -115,14 +115,14 @@ export function TradingViewReplay({
 
     // Get visible data up to currentIndex
     const visibleData = data.slice(0, currentIndex + 1).map((d) => ({
-      time: Math.floor(d.time / 1000),
+      time: Math.floor(d.time / 1000) as any,
       open: d.open,
       high: d.high,
       low: d.low,
       close: d.close,
     }));
 
-    candleSeriesRef.current.setData(visibleData);
+    candleSeriesRef.current.setData(visibleData as any);
 
     // Add marker for current candle (at the bottom)
     const markers = [];
@@ -146,7 +146,7 @@ export function TradingViewReplay({
       const entryCandle = data[entryIndex];
       if (entryCandle) {
         markers.push({
-          time: Math.floor(entryCandle.time / 1000),
+          time: Math.floor(entryCandle.time / 1000) as any,
           position: "belowBar" as const,
           color: "#f59e0b",
           shape: "arrowUp" as const,
@@ -182,7 +182,7 @@ export function TradingViewReplay({
         candleSeriesRef.current._tp1Line = candleSeriesRef.current.createPriceLine({
           price: tp1Price,
           color: "#16a34a",
-          lineWidth: 1.5,
+          lineWidth: 2,
           lineStyle: 2,
           axisLabelVisible: true,
           title: "TP1",
@@ -193,7 +193,7 @@ export function TradingViewReplay({
         candleSeriesRef.current._tp2Line = candleSeriesRef.current.createPriceLine({
           price: tp2Price,
           color: "#16a34a",
-          lineWidth: 1.5,
+          lineWidth: 2,
           lineStyle: 2,
           axisLabelVisible: true,
           title: "TP2",
@@ -204,7 +204,7 @@ export function TradingViewReplay({
         candleSeriesRef.current._tp3Line = candleSeriesRef.current.createPriceLine({
           price: tp3Price,
           color: "#16a34a",
-          lineWidth: 1.5,
+          lineWidth: 2,
           lineStyle: 2,
           axisLabelVisible: true,
           title: "TP3",

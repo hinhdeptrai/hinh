@@ -45,7 +45,7 @@ export function TradingViewChart({
       width: chartContainerRef.current.clientWidth,
       height: 500,
       layout: {
-        backgroundColor: "#ffffff",
+        background: { color: "#ffffff" },
         textColor: "#333",
       },
       grid: {
@@ -81,14 +81,14 @@ export function TradingViewChart({
 
     // Format data for TradingView
     const formattedData = data.map((d) => ({
-      time: Math.floor(d.time / 1000), // Convert ms to seconds
+      time: Math.floor(d.time / 1000) as any, // Convert ms to seconds
       open: d.open,
       high: d.high,
       low: d.low,
       close: d.close,
     }));
 
-    candleSeries.setData(formattedData);
+    candleSeries.setData(formattedData as any);
 
     // Add price lines for levels
     if (entryPrice) {
@@ -117,7 +117,7 @@ export function TradingViewChart({
       candleSeries.createPriceLine({
         price: tp1Price,
         color: "#16a34a",
-        lineWidth: 1.5,
+        lineWidth: 2,
         lineStyle: 2,
         axisLabelVisible: true,
         title: "TP1",
@@ -128,7 +128,7 @@ export function TradingViewChart({
       candleSeries.createPriceLine({
         price: tp2Price,
         color: "#16a34a",
-        lineWidth: 1.5,
+        lineWidth: 2,
         lineStyle: 2,
         axisLabelVisible: true,
         title: "TP2",
@@ -139,7 +139,7 @@ export function TradingViewChart({
       candleSeries.createPriceLine({
         price: tp3Price,
         color: "#16a34a",
-        lineWidth: 1.5,
+        lineWidth: 2,
         lineStyle: 2,
         axisLabelVisible: true,
         title: "TP3",

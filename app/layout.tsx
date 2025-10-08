@@ -1,5 +1,5 @@
 import "./globals.css";
-import { ReactNode } from "react";
+import { ReactNode, Suspense } from "react";
 import MainLayout from "@/components/main-layout";
 import ProgressBar from "@/components/progress-bar";
 
@@ -24,7 +24,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         />
       </head>
       <body className="font-montserrat">
-        <ProgressBar />
+        <Suspense fallback={null}>
+          <ProgressBar />
+        </Suspense>
         <MainLayout>{children}</MainLayout>
       </body>
     </html>
