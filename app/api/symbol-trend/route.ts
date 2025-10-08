@@ -5,17 +5,17 @@ import type { IndicatorType } from "@/lib/indicators/types"
 export const dynamic = "force-dynamic"
 
 /**
- * GET /api/btc-trend?timeframe=4h&altTimeframe=1h
+ * GET /api/symbol-trend?symbol=BTCUSDT&timeframe=4h&altTimeframe=1h
  *
- * Analyzes BTC across ALL indicators to show consensus/divergence
+ * Analyzes any symbol across ALL indicators to show consensus/divergence
  * Supports dual timeframe analysis (main + alt)
  */
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
+    const symbol = searchParams.get('symbol') || 'BTCUSDT'
     const timeframe = searchParams.get('timeframe') || '4h'
     const altTimeframe = searchParams.get('altTimeframe') || '1h'
-    const symbol = 'BTCUSDT'
     const limit = 500
 
     // Get all available indicators
@@ -191,7 +191,7 @@ export async function GET(req: NextRequest) {
       altIndicators,
     })
   } catch (e: any) {
-    console.error('BTC trend error:', e)
+    console.error('Symbol trend error:', e)
     return NextResponse.json(
       { error: e.message || 'Internal server error', stack: e.stack },
       { status: 500 }

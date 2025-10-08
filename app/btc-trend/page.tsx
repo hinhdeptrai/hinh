@@ -52,6 +52,7 @@ interface BTCTrendData {
   success: boolean
   symbol: string
   timeframe: string
+  altTimeframe: string
   currentPrice: number
   timestamp: string
   consensus: {
@@ -64,7 +65,18 @@ interface BTCTrendData {
     freshBuyCount: number
     freshSellCount: number
   }
+  altConsensus: {
+    overall: 'BULLISH' | 'BEARISH' | 'NEUTRAL'
+    strength: number
+    avgWinRate: number
+    buyCount: number
+    sellCount: number
+    noneCount: number
+    freshBuyCount: number
+    freshSellCount: number
+  }
   indicators: IndicatorResult[]
+  altIndicators: IndicatorResult[]
 }
 
 function BTCTrendPage() {
@@ -73,12 +85,13 @@ function BTCTrendPage() {
   const [error, setError] = useState<string | null>(null)
   const [timeframe, setTimeframe] = useState("4h")
   const [autoRefresh, setAutoRefresh] = useState(false)
+  const [activeTab, setActiveTab] = useState<'main' | 'alt'>('main')
 
   const fetchData = async () => {
     try {
       setLoading(true)
       setError(null)
-      const res = await fetch(`/api/btc-trend?timeframe=${timeframe}`)
+      const res = await fetch(`/api/btc-trend?timeframe=${timeframe}&altTimeframe=1h`)
       if (!res.ok) throw new Error(await res.text())
       const result = await res.json()
       setData(result)
@@ -206,48 +219,106 @@ function BTCTrendPage() {
         {/* Main Content */}
         {data && (
           <>
-            {/* Overall Consensus */}
-            <Card className={`border-2 ${getOverallColor(data.consensus.overall)}`}>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-3">
-                  {getOverallIcon(data.consensus.overall)}
-                  <div>
-                    <div className="text-3xl font-bold">{data.consensus.overall}</div>
-                    <div className="text-sm font-normal opacity-75">
-                      Strength: {data.consensus.strength}% | Avg Win Rate: {data.consensus.avgWinRate}%
+            {/* Dual Timeframe Consensus */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Main Timeframe Consensus */}
+              <Card className={`border-2 ${getOverallColor(data.consensus.overall)}`}>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-3">
+                    {getOverallIcon(data.consensus.overall)}
+                    <div>
+                      <div className="text-2xl font-bold">{data.consensus.overall}</div>
+                      <div className="text-sm font-normal opacity-75">
+                        {data.timeframe} | Strength: {data.consensus.strength}% | WR: {data.consensus.avgWinRate}%
+                      </div>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="text-center">
+                      <div className="text-xl font-bold">${data.currentPrice.toLocaleString()}</div>
+                      <div className="text-xs text-gray-600">Current Price</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xl font-bold text-green-600">{data.consensus.freshBuyCount}</div>
+                      <div className="text-xs text-gray-600">Fresh BUY</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xl font-bold text-red-600">{data.consensus.freshSellCount}</div>
+                      <div className="text-xs text-gray-600">Fresh SELL</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xl font-bold">{data.indicators.length}</div>
+                      <div className="text-xs text-gray-600">Indicators</div>
                     </div>
                   </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">${data.currentPrice.toLocaleString()}</div>
-                    <div className="text-sm text-gray-600">Current Price</div>
+                </CardContent>
+              </Card>
+
+              {/* Alt Timeframe Consensus */}
+              <Card className={`border-2 ${getOverallColor(data.altConsensus.overall)}`}>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-3">
+                    {getOverallIcon(data.altConsensus.overall)}
+                    <div>
+                      <div className="text-2xl font-bold">{data.altConsensus.overall}</div>
+                      <div className="text-sm font-normal opacity-75">
+                        {data.altTimeframe} | Strength: {data.altConsensus.strength}% | WR: {data.altConsensus.avgWinRate}%
+                      </div>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="text-center">
+                      <div className="text-xl font-bold">${data.currentPrice.toLocaleString()}</div>
+                      <div className="text-xs text-gray-600">Current Price</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xl font-bold text-green-600">{data.altConsensus.freshBuyCount}</div>
+                      <div className="text-xs text-gray-600">Fresh BUY</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xl font-bold text-red-600">{data.altConsensus.freshSellCount}</div>
+                      <div className="text-xs text-gray-600">Fresh SELL</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xl font-bold">{data.altIndicators.length}</div>
+                      <div className="text-xs text-gray-600">Indicators</div>
+                    </div>
                   </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600">{data.consensus.freshBuyCount}</div>
-                    <div className="text-sm text-gray-600">Fresh BUY</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-red-600">{data.consensus.freshSellCount}</div>
-                    <div className="text-sm text-gray-600">Fresh SELL</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-gray-600">{data.consensus.noneCount}</div>
-                    <div className="text-sm text-gray-600">No Signal</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">{data.indicators.length}</div>
-                    <div className="text-sm text-gray-600">Total Indicators</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Timeframe Tabs */}
+            <div className="flex gap-2 border-b">
+              <button
+                onClick={() => setActiveTab('main')}
+                className={`px-4 py-2 font-medium transition ${
+                  activeTab === 'main'
+                    ? 'border-b-2 border-blue-600 text-blue-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                📊 {data.timeframe} Indicators
+              </button>
+              <button
+                onClick={() => setActiveTab('alt')}
+                className={`px-4 py-2 font-medium transition ${
+                  activeTab === 'alt'
+                    ? 'border-b-2 border-blue-600 text-blue-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                ⏱️ {data.altTimeframe} Indicators
+              </button>
+            </div>
 
             {/* Individual Indicators */}
             <div className="grid gap-4">
-              {data.indicators
+              {(activeTab === 'main' ? data.indicators : data.altIndicators)
                 .sort((a, b) => {
                   // Sort by: fresh signals first, then by win rate
                   if (a.isSignalFresh && !b.isSignalFresh) return -1

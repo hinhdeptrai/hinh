@@ -82,6 +82,10 @@ export function rsi(arr: (number | null)[], period: number = 14): (number | null
   return out
 }
 
+export function calculateRSI(arr: (number | null)[], period: number = 14): (number | null)[] {
+  return rsi(arr, period)
+}
+
 export function calculateMACD(
   closes: (number | null)[],
   fastPeriod: number = 12,

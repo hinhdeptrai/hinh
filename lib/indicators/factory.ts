@@ -2,6 +2,9 @@ import type { BaseIndicator, IndicatorType, Klines, IndicatorResult } from './ty
 import { MacdBBIndicator } from './macd-bb'
 import { RsiMacdEmaIndicator } from './rsi-macd-ema'
 import { FibonacciAlgoIndicator } from './fibonacci-algo'
+import { RsiVolumeBBIndicator } from './rsi-volume-bb'
+import { SupertrendEmaIndicator } from './supertrend-ema'
+import { EmaCrossRsiIndicator } from './ema-cross-rsi'
 
 export class IndicatorFactory {
   private static indicators: Map<IndicatorType, BaseIndicator> = new Map()
@@ -11,6 +14,9 @@ export class IndicatorFactory {
     IndicatorFactory.indicators.set('FIBONACCI_ALGO', new FibonacciAlgoIndicator())
     IndicatorFactory.indicators.set('MACD_BB', new MacdBBIndicator())
     IndicatorFactory.indicators.set('RSI_MACD_EMA', new RsiMacdEmaIndicator())
+    IndicatorFactory.indicators.set('RSI_VOLUME_BB', new RsiVolumeBBIndicator())
+    IndicatorFactory.indicators.set('SUPERTREND_EMA', new SupertrendEmaIndicator())
+    IndicatorFactory.indicators.set('EMA_CROSS_RSI', new EmaCrossRsiIndicator())
   }
 
   static create(type: IndicatorType): BaseIndicator {

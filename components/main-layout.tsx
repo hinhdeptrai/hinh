@@ -27,7 +27,10 @@ export default function MainLayout({
       <header className="border-b sticky top-0 z-10 bg-background/80 backdrop-blur">
         <div className="container flex h-14 items-center justify-between">
           <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition">
+            <Link
+              href="/"
+              className="flex items-center gap-2 hover:opacity-80 transition"
+            >
               <div className="w-6 h-6 flex items-center justify-center">
                 <svg
                   width="24"
@@ -59,17 +62,27 @@ export default function MainLayout({
                     : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                 }`}
               >
-                📊 Symbols
+                📈 BTC Trend
               </Link>
               <Link
-                href="/btc-trend"
+                href="/signals"
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
-                  pathname === "/btc-trend"
+                  pathname === "/signals"
                     ? "bg-gray-100 text-gray-900"
                     : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                 }`}
               >
-                🔥 BTC Trend
+                📶 Signals
+              </Link>
+              <Link
+                href="/symbol-trend"
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
+                  pathname === "/symbol-trend"
+                    ? "bg-gray-100 text-gray-900"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                }`}
+              >
+                🎯 Symbol Trend
               </Link>
               <Link
                 href="/tracking"

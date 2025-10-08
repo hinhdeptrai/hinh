@@ -1,6 +1,7 @@
 import "./globals.css";
 import { ReactNode } from "react";
 import MainLayout from "@/components/main-layout";
+import ProgressBar from "@/components/progress-bar";
 
 export const metadata = {
   title: "Trade Admin Panel",
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         />
       </head>
       <body className="font-montserrat">
+        <ProgressBar />
         <MainLayout>{children}</MainLayout>
       </body>
     </html>
