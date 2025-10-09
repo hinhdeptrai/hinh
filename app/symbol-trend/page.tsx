@@ -208,33 +208,33 @@ function SymbolTrendPage() {
 
   return (
     <AuthWrapper>
-      <div className="container mx-auto p-4 space-y-6">
+      <div className="container mx-auto p-2 sm:p-4 space-y-4 sm:space-y-6">
         {/* Header */}
         <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
+          <CardHeader className="p-4 sm:p-6">
+            <div className="flex flex-col gap-4">
               <div>
-                <CardTitle className="text-2xl">
+                <CardTitle className="text-xl sm:text-2xl">
                   📊 Symbol Trend Analysis
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-sm">
                   Phân tích xu hướng crypto qua tất cả các chỉ báo
                 </CardDescription>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Popover open={open} onOpenChange={setOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       role="combobox"
                       aria-expanded={open}
-                      className="w-[180px] justify-between"
+                      className="w-[140px] sm:w-[180px] justify-between text-sm"
                     >
-                      {symbol.replace("USDT", "")}
+                      <span className="truncate">{symbol.replace("USDT", "")}</span>
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[180px] p-0">
+                  <PopoverContent className="w-[200px] p-0">
                     <Command>
                       <CommandInput placeholder="Search symbol..." />
                       <CommandList>
@@ -264,7 +264,7 @@ function SymbolTrendPage() {
                   </PopoverContent>
                 </Popover>
                 <Select value={timeframe} onValueChange={setTimeframe}>
-                  <SelectTrigger className="w-[120px]">
+                  <SelectTrigger className="w-[100px] sm:w-[120px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -278,13 +278,14 @@ function SymbolTrendPage() {
                   variant={autoRefresh ? "default" : "outline"}
                   size="sm"
                   onClick={() => setAutoRefresh(!autoRefresh)}
+                  className="text-xs sm:text-sm"
                 >
                   <RefreshCw
-                    className={`h-4 w-4 mr-2 ${
+                    className={`h-4 w-4 mr-1 sm:mr-2 ${
                       autoRefresh ? "animate-spin" : ""
                     }`}
                   />
-                  {autoRefresh ? "Auto" : "Manual"}
+                  <span className="hidden sm:inline">{autoRefresh ? "Auto" : "Manual"}</span>
                 </Button>
                 <Button size="sm" onClick={fetchData} disabled={loading}>
                   <RefreshCw
@@ -320,50 +321,48 @@ function SymbolTrendPage() {
         {data && (
           <>
             {/* Dual Timeframe Consensus */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
               {/* Main Timeframe Consensus */}
               <Card
                 className={`border-2 ${getOverallColor(
                   data.consensus.overall
                 )}`}
               >
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-3">
+                <CardHeader className="p-4 sm:p-6">
+                  <CardTitle className="flex items-center gap-2 sm:gap-3">
                     {getOverallIcon(data.consensus.overall)}
-                    <div>
-                      <div className="text-2xl font-bold">
+                    <div className="min-w-0">
+                      <div className="text-xl sm:text-2xl font-bold truncate">
                         {data.consensus.overall}
                       </div>
-                      <div className="text-sm font-normal opacity-75">
-                        {data.symbol.replace("USDT", "")} | {data.timeframe} |
-                        Strength: {data.consensus.strength}% | WR:{" "}
-                        {data.consensus.avgWinRate}%
+                      <div className="text-xs sm:text-sm font-normal opacity-75">
+                        {data.symbol.replace("USDT", "")} | {data.timeframe} | {data.consensus.strength}% | WR: {data.consensus.avgWinRate}%
                       </div>
                     </div>
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="text-center">
-                      <div className="text-xl font-bold font-mono">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                    <div className="text-center p-2 sm:p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                      <div className="text-base sm:text-xl font-bold font-mono break-all">
                         ${formatPrice(data.currentPrice)}
                       </div>
-                      <div className="text-xs text-gray-600">Current Price</div>
+                      <div className="text-xs text-gray-600">Price</div>
                     </div>
-                    <div className="text-center">
-                      <div className="text-xl font-bold text-green-600">
+                    <div className="text-center p-2 sm:p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                      <div className="text-base sm:text-xl font-bold text-green-600">
                         {data.consensus.freshBuyCount}
                       </div>
                       <div className="text-xs text-gray-600">Fresh BUY</div>
                     </div>
-                    <div className="text-center">
-                      <div className="text-xl font-bold text-red-600">
+                    <div className="text-center p-2 sm:p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                      <div className="text-base sm:text-xl font-bold text-red-600">
                         {data.consensus.freshSellCount}
                       </div>
                       <div className="text-xs text-gray-600">Fresh SELL</div>
                     </div>
-                    <div className="text-center">
-                      <div className="text-xl font-bold">
+                    <div className="text-center p-2 sm:p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                      <div className="text-base sm:text-xl font-bold">
                         {data.indicators.length}
                       </div>
                       <div className="text-xs text-gray-600">Indicators</div>
@@ -378,43 +377,41 @@ function SymbolTrendPage() {
                   data.altConsensus.overall
                 )}`}
               >
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-3">
+                <CardHeader className="p-4 sm:p-6">
+                  <CardTitle className="flex items-center gap-2 sm:gap-3">
                     {getOverallIcon(data.altConsensus.overall)}
-                    <div>
-                      <div className="text-2xl font-bold">
+                    <div className="min-w-0">
+                      <div className="text-xl sm:text-2xl font-bold truncate">
                         {data.altConsensus.overall}
                       </div>
-                      <div className="text-sm font-normal opacity-75">
-                        {data.symbol.replace("USDT", "")} | {data.altTimeframe}{" "}
-                        | Strength: {data.altConsensus.strength}% | WR:{" "}
-                        {data.altConsensus.avgWinRate}%
+                      <div className="text-xs sm:text-sm font-normal opacity-75">
+                        {data.symbol.replace("USDT", "")} | {data.altTimeframe} | {data.altConsensus.strength}% | WR: {data.altConsensus.avgWinRate}%
                       </div>
                     </div>
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="text-center">
-                      <div className="text-xl font-bold">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                    <div className="text-center p-2 sm:p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                      <div className="text-base sm:text-xl font-bold break-all">
                         ${formatPrice(data.currentPrice)}
                       </div>
-                      <div className="text-xs text-gray-600">Current Price</div>
+                      <div className="text-xs text-gray-600">Price</div>
                     </div>
-                    <div className="text-center">
-                      <div className="text-xl font-bold text-green-600">
+                    <div className="text-center p-2 sm:p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                      <div className="text-base sm:text-xl font-bold text-green-600">
                         {data.altConsensus.freshBuyCount}
                       </div>
                       <div className="text-xs text-gray-600">Fresh BUY</div>
                     </div>
-                    <div className="text-center">
-                      <div className="text-xl font-bold text-red-600">
+                    <div className="text-center p-2 sm:p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                      <div className="text-base sm:text-xl font-bold text-red-600">
                         {data.altConsensus.freshSellCount}
                       </div>
                       <div className="text-xs text-gray-600">Fresh SELL</div>
                     </div>
-                    <div className="text-center">
-                      <div className="text-xl font-bold">
+                    <div className="text-center p-2 sm:p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                      <div className="text-base sm:text-xl font-bold">
                         {data.altIndicators.length}
                       </div>
                       <div className="text-xs text-gray-600">Indicators</div>
@@ -425,31 +422,31 @@ function SymbolTrendPage() {
             </div>
 
             {/* Timeframe Tabs */}
-            <div className="flex gap-2 border-b">
+            <div className="flex gap-2 border-b overflow-x-auto">
               <button
                 onClick={() => setActiveTab("main")}
-                className={`px-4 py-2 font-medium transition ${
+                className={`px-3 sm:px-4 py-2 font-medium transition whitespace-nowrap text-sm sm:text-base ${
                   activeTab === "main"
                     ? "border-b-2 border-blue-600 text-blue-600"
                     : "text-gray-600 hover:text-gray-900"
                 }`}
               >
-                📊 {data.timeframe} Indicators
+                📊 {data.timeframe}
               </button>
               <button
                 onClick={() => setActiveTab("alt")}
-                className={`px-4 py-2 font-medium transition ${
+                className={`px-3 sm:px-4 py-2 font-medium transition whitespace-nowrap text-sm sm:text-base ${
                   activeTab === "alt"
                     ? "border-b-2 border-blue-600 text-blue-600"
                     : "text-gray-600 hover:text-gray-900"
                 }`}
               >
-                ⏱️ {data.altTimeframe} Indicators
+                ⏱️ {data.altTimeframe}
               </button>
             </div>
 
             {/* Individual Indicators */}
-            <div className="grid gap-4">
+            <div className="grid gap-3 sm:gap-4">
               {(activeTab === "main" ? data.indicators : data.altIndicators)
                 .sort((a, b) => {
                   // Sort by: fresh signals first, then by win rate
@@ -464,37 +461,42 @@ function SymbolTrendPage() {
                       ind.isSignalFresh ? "border-2 border-blue-300" : ""
                     }
                   >
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <CardTitle className="text-lg">
+                    <CardHeader className="p-4 sm:p-6">
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <CardTitle className="text-base sm:text-lg">
                               {ind.name}
                             </CardTitle>
-                            <Badge variant="outline">{ind.winRate}% WR</Badge>
+                            <Badge variant="outline" className="text-xs">{ind.winRate}% WR</Badge>
                             {ind.isSignalFresh && (
-                              <Badge className="bg-blue-500">✨ Fresh</Badge>
+                              <Badge className="bg-blue-500 text-xs">✨ Fresh</Badge>
                             )}
                           </div>
-                          <CardDescription className="text-sm">
+                          <CardDescription className="text-xs sm:text-sm">
                             {ind.description}
                           </CardDescription>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           {getSignalBadge(ind.lastSignal, ind.isSignalFresh)}
                           {getOutcomeBadge(ind.lastSignalOutcome)}
                         </div>
                       </div>
                     </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 text-xs sm:text-sm">
                         {/* Signal Info */}
                         <div>
                           <div className="font-semibold mb-1">Last Signal</div>
-                          <div className="text-gray-600">
+                          <div className="text-gray-600 text-xs">
                             {ind.lastSignalTime
                               ? new Date(ind.lastSignalTime).toLocaleString(
-                                  "vi-VN"
+                                  "vi-VN", {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  }
                                 )
                               : "N/A"}
                           </div>
@@ -506,7 +508,7 @@ function SymbolTrendPage() {
                         {/* Entry Price */}
                         <div>
                           <div className="font-semibold mb-1">Entry Price</div>
-                          <div className="text-gray-600 font-mono">
+                          <div className="text-gray-600 font-mono break-all">
                             ${formatPrice(ind.lastSignalPrice)}
                           </div>
                           <div className="text-xs text-gray-500">
@@ -522,13 +524,13 @@ function SymbolTrendPage() {
                         <div>
                           <div className="font-semibold mb-1">Targets</div>
                           <div className="text-xs space-y-0.5 font-mono">
-                            <div className="text-green-600">
+                            <div className="text-green-600 break-all">
                               TP1: ${formatPrice(ind.entryLevels.tp1)}
                             </div>
-                            <div className="text-green-600">
+                            <div className="text-green-600 break-all">
                               TP2: ${formatPrice(ind.entryLevels.tp2)}
                             </div>
-                            <div className="text-green-600">
+                            <div className="text-green-600 break-all">
                               TP3: ${formatPrice(ind.entryLevels.tp3)}
                             </div>
                           </div>
@@ -537,7 +539,7 @@ function SymbolTrendPage() {
                         {/* Stop Loss */}
                         <div>
                           <div className="font-semibold mb-1">Stop Loss</div>
-                          <div className="text-red-600 font-mono">
+                          <div className="text-red-600 font-mono break-all">
                             ${formatPrice(ind.entryLevels.sl)}
                           </div>
                           <div className="text-xs text-gray-500 mt-1">
@@ -548,11 +550,11 @@ function SymbolTrendPage() {
 
                       {/* Reasons */}
                       {ind.reasons && ind.reasons.length > 0 && (
-                        <div className="mt-4 pt-4 border-t">
-                          <div className="font-semibold text-sm mb-2">
+                        <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t">
+                          <div className="font-semibold text-xs sm:text-sm mb-2">
                             Reasons:
                           </div>
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-wrap gap-1 sm:gap-2">
                             {ind.reasons.map((reason, idx) => (
                               <Badge
                                 key={idx}
