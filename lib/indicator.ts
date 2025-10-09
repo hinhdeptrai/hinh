@@ -12,6 +12,7 @@ const toNum = (x: any) => (x == null ? null : Number(x))
 const sma = (arr: (number | null)[], p: number) => {
   const out: (number | null)[] = Array(arr.length).fill(null)
   let sum = 0
+  let count = 0
   for (let i = 0; i < arr.length; i++) {
     const v = arr[i]
     if (v == null) {
@@ -19,8 +20,19 @@ const sma = (arr: (number | null)[], p: number) => {
       continue
     }
     sum += v
-    if (i >= p) sum -= (arr[i - p] as number)
-    out[i] = i >= p - 1 ? sum / p : null
+    count++
+
+    // Remove oldest value if we exceed the period
+    if (i >= p) {
+      const oldVal = arr[i - p]
+      if (oldVal != null) {
+        sum -= oldVal
+        count--
+      }
+    }
+
+    // Only calculate SMA when we have enough valid values
+    out[i] = count >= p ? sum / p : null
   }
   return out
 }
@@ -66,26 +78,36 @@ const rma = (arr: (number | null)[], p: number) => {
 
 const rsi = (arr: (number | null)[], p: number) => {
   const out: (number | null)[] = Array(arr.length).fill(null)
-  let avgGain = 0,
-    avgLoss = 0
+  let avgGain = 0
+  let avgLoss = 0
+
   for (let i = 1; i < arr.length; i++) {
-    const change = (arr[i] ?? 0) - (arr[i - 1] ?? 0)
-    const gain = Math.max(change as number, 0)
-    const loss = Math.max(-(change as number), 0)
-    if (i <= p) {
+    // Skip if current or previous value is null
+    if (arr[i] == null || arr[i - 1] == null) {
+      out[i] = null
+      continue
+    }
+
+    const change = (arr[i] as number) - (arr[i - 1] as number)
+    const gain = Math.max(change, 0)
+    const loss = Math.max(-change, 0)
+
+    if (i < p) {
+      // Accumulate gains and losses for initial period
       avgGain += gain
       avgLoss += loss
-      if (i === p) {
-        avgGain /= p
-        avgLoss /= p
-        const rs = avgLoss === 0 ? 100 : avgGain / avgLoss
-        out[i] = 100 - 100 / (1 + (rs as number))
-      }
+    } else if (i === p) {
+      // Calculate first RSI value using simple average
+      avgGain = (avgGain + gain) / p
+      avgLoss = (avgLoss + loss) / p
+      const rs = avgLoss === 0 ? 100 : avgGain / avgLoss
+      out[i] = 100 - 100 / (1 + rs)
     } else {
+      // Use Wilder's smoothing method for subsequent values
       avgGain = (avgGain * (p - 1) + gain) / p
       avgLoss = (avgLoss * (p - 1) + loss) / p
       const rs = avgLoss === 0 ? 100 : avgGain / avgLoss
-      out[i] = 100 - 100 / (1 + (rs as number))
+      out[i] = 100 - 100 / (1 + rs)
     }
   }
   return out

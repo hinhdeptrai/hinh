@@ -3,6 +3,7 @@
 export function sma(arr: (number | null)[], period: number): (number | null)[] {
   const out: (number | null)[] = Array(arr.length).fill(null)
   let sum = 0
+  let count = 0
   for (let i = 0; i < arr.length; i++) {
     const v = arr[i]
     if (v == null) {
@@ -10,8 +11,19 @@ export function sma(arr: (number | null)[], period: number): (number | null)[] {
       continue
     }
     sum += v
-    if (i >= period) sum -= (arr[i - period] as number)
-    out[i] = i >= period - 1 ? sum / period : null
+    count++
+
+    // Remove oldest value if we exceed the period
+    if (i >= period) {
+      const oldVal = arr[i - period]
+      if (oldVal != null) {
+        sum -= oldVal
+        count--
+      }
+    }
+
+    // Only calculate SMA when we have enough valid values
+    out[i] = count >= period ? sum / period : null
   }
   return out
 }
@@ -59,24 +71,34 @@ export function rsi(arr: (number | null)[], period: number = 14): (number | null
   const out: (number | null)[] = Array(arr.length).fill(null)
   let avgGain = 0
   let avgLoss = 0
+
   for (let i = 1; i < arr.length; i++) {
-    const change = (arr[i] ?? 0) - (arr[i - 1] ?? 0)
-    const gain = Math.max(change as number, 0)
-    const loss = Math.max(-(change as number), 0)
-    if (i <= period) {
+    // Skip if current or previous value is null
+    if (arr[i] == null || arr[i - 1] == null) {
+      out[i] = null
+      continue
+    }
+
+    const change = (arr[i] as number) - (arr[i - 1] as number)
+    const gain = Math.max(change, 0)
+    const loss = Math.max(-change, 0)
+
+    if (i < period) {
+      // Accumulate gains and losses for initial period
       avgGain += gain
       avgLoss += loss
-      if (i === period) {
-        avgGain /= period
-        avgLoss /= period
-        const rs = avgLoss === 0 ? 100 : avgGain / avgLoss
-        out[i] = 100 - 100 / (1 + (rs as number))
-      }
+    } else if (i === period) {
+      // Calculate first RSI value using simple average
+      avgGain = (avgGain + gain) / period
+      avgLoss = (avgLoss + loss) / period
+      const rs = avgLoss === 0 ? 100 : avgGain / avgLoss
+      out[i] = 100 - 100 / (1 + rs)
     } else {
+      // Use Wilder's smoothing method for subsequent values
       avgGain = (avgGain * (period - 1) + gain) / period
       avgLoss = (avgLoss * (period - 1) + loss) / period
       const rs = avgLoss === 0 ? 100 : avgGain / avgLoss
-      out[i] = 100 - 100 / (1 + (rs as number))
+      out[i] = 100 - 100 / (1 + rs)
     }
   }
   return out
@@ -133,18 +155,26 @@ export function calculateBollingerBands(
       continue
     }
 
-    // Calculate standard deviation
+    // Calculate standard deviation with proper null handling
     let sum = 0
+    let count = 0
     for (let j = i - period + 1; j <= i; j++) {
       const val = closes[j]
       if (val != null) {
         sum += Math.pow((val as number) - (middle[i] as number), 2)
+        count++
       }
     }
-    const stdDev = Math.sqrt(sum / period)
 
-    upper.push((middle[i] as number) + stdDevMultiplier * stdDev)
-    lower.push((middle[i] as number) - stdDevMultiplier * stdDev)
+    // Only calculate if we have enough valid values
+    if (count >= period) {
+      const stdDev = Math.sqrt(sum / count)
+      upper.push((middle[i] as number) + stdDevMultiplier * stdDev)
+      lower.push((middle[i] as number) - stdDevMultiplier * stdDev)
+    } else {
+      upper.push(null)
+      lower.push(null)
+    }
   }
 
   return { upper, middle, lower }
@@ -199,11 +229,13 @@ export function calculateSupertrend(
     }
 
     // Final bands
-    if (finalUpperBand == null || (basicUpperBand[i] as number) < finalUpperBand || closes[i - 1] > finalUpperBand) {
+    const prevClose = i > 0 ? closes[i - 1] : closes[i]
+
+    if (finalUpperBand == null || (basicUpperBand[i] as number) < finalUpperBand || prevClose > finalUpperBand) {
       finalUpperBand = basicUpperBand[i] as number
     }
 
-    if (finalLowerBand == null || (basicLowerBand[i] as number) > finalLowerBand || closes[i - 1] < finalLowerBand) {
+    if (finalLowerBand == null || (basicLowerBand[i] as number) > finalLowerBand || prevClose < finalLowerBand) {
       finalLowerBand = basicLowerBand[i] as number
     }
 
@@ -262,7 +294,7 @@ export function calculateATR(
   return useRMA ? rma(tr, period) : ema(tr, period)
 }
 
-export function isVolumeSpi(
+export function isVolumeSpike(
   volumes: number[],
   threshold: number = 1.5,
   period: number = 20
