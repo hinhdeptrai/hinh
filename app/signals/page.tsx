@@ -410,6 +410,52 @@ export default function Page() {
   const onRemove = (s: string) =>
     setSymbols((prev) => prev.filter((x) => x !== s));
 
+  const queueSignal = async (row: IndicatorResponse) => {
+    try {
+      const payload = {
+        symbol: row.symbol,
+        timeframe: row.mainTF,
+        signal_type: row.signal,
+        entry_price: row.lastSignalPrice || row.close,
+        sl_price: row.entryLevels?.sl,
+        tp1_price: row.entryLevels?.tp1,
+        tp2_price: row.entryLevels?.tp2,
+        tp3_price: row.entryLevels?.tp3,
+        tp4_price: (row.entryLevels as any)?.tp4,
+        tp5_price: (row.entryLevels as any)?.tp5,
+        tp6_price: (row.entryLevels as any)?.tp6,
+        signal_time: row.lastSignalTime || new Date().toISOString(),
+        is_fresh: row.isSignalFresh,
+        volume_confirmed: row.volumeConfirmed,
+      };
+
+      console.log("Queueing signal:", payload);
+
+      const res = await fetch("/api/queue-signal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        const result = await res.json();
+        console.log("Queue signal result:", result);
+        alert(
+          `✅ Signal đã được thêm vào hàng đợi!\n\n` +
+          `Nến sẽ đóng lúc: ${new Date(result.data.candle_close_time_iso).toLocaleString("vi-VN")}\n` +
+          `Thời gian chờ: ${result.data.wait_time_minutes} phút`
+        );
+      } else {
+        const error = await res.json();
+        console.error("Queue signal error:", error);
+        alert(`❌ Lỗi: ${error.error || "Unknown error"}`);
+      }
+    } catch (e: any) {
+      console.error("Queue signal exception:", e);
+      alert(`❌ Lỗi: ${e.message}`);
+    }
+  };
+
   const trackSignal = async (row: IndicatorResponse) => {
     try {
       // Important: Only track signals from confirmed (closed) candles
@@ -1466,13 +1512,26 @@ export default function Page() {
                             <TableCell className="text-right space-x-2">
                               <IndicatorDetails data={row} />
                               {(row.signal === "BUY" || row.signal === "SELL") && row.isSignalFresh && (
-                                <Button
-                                  variant="default"
-                                  size="sm"
-                                  onClick={() => trackSignal(row)}
-                                >
-                                  Theo dõi
-                                </Button>
+                                <>
+                                  {row.barsSinceSignal === 0 ? (
+                                    <Button
+                                      variant="default"
+                                      size="sm"
+                                      onClick={() => queueSignal(row)}
+                                      className="bg-yellow-600 hover:bg-yellow-700"
+                                    >
+                                      ⏱️ Queue
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      variant="default"
+                                      size="sm"
+                                      onClick={() => trackSignal(row)}
+                                    >
+                                      Theo dõi
+                                    </Button>
+                                  )}
+                                </>
                               )}
                               <Button
                                 variant="outline"

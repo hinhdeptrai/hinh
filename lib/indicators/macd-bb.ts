@@ -1,5 +1,5 @@
 import type { BaseIndicator, MacdBBSettings, Klines, IndicatorResult } from './types'
-import { calculateMACD, calculateBollingerBands, sma, isVolumeSpi } from './utils/technical'
+import { calculateMACD, calculateBollingerBands, sma, isVolumeSpike } from './utils/technical'
 
 export class MacdBBIndicator implements BaseIndicator {
   getName(): string {

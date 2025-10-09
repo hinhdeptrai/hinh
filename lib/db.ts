@@ -419,3 +419,140 @@ export async function deleteIndicatorSettings(symbol: string, timeframe: string)
   return await query(sql, [symbol, timeframe]);
 }
 
+// Signal Queue for unconfirmed signals
+const CREATE_SIGNAL_QUEUE_TABLE = `
+CREATE TABLE IF NOT EXISTS signal_queue (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  symbol VARCHAR(20) NOT NULL,
+  timeframe VARCHAR(10) NOT NULL,
+  signal_type ENUM('BUY', 'SELL') NOT NULL,
+  entry_price DECIMAL(20, 8) NOT NULL,
+  sl_price DECIMAL(20, 8),
+  tp1_price DECIMAL(20, 8),
+  tp2_price DECIMAL(20, 8),
+  tp3_price DECIMAL(20, 8),
+  tp4_price DECIMAL(20, 8),
+  tp5_price DECIMAL(20, 8),
+  tp6_price DECIMAL(20, 8),
+  signal_time BIGINT NOT NULL COMMENT 'Unix timestamp in milliseconds when signal appeared',
+  candle_close_time BIGINT NOT NULL COMMENT 'Unix timestamp in milliseconds when candle closes',
+  is_fresh BOOLEAN DEFAULT FALSE,
+  volume_confirmed BOOLEAN DEFAULT FALSE,
+  status ENUM('PENDING', 'PROCESSED', 'FAILED') DEFAULT 'PENDING',
+  processed_at TIMESTAMP NULL,
+  error_message TEXT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_status (status),
+  INDEX idx_candle_close (candle_close_time),
+  INDEX idx_status_closetime (status, candle_close_time),
+  INDEX idx_symbol_tf (symbol, timeframe)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+`;
+
+export async function ensureSignalQueueSchema() {
+  try {
+    await query(CREATE_SIGNAL_QUEUE_TABLE);
+    console.log('Signal queue table ensured');
+  } catch (e: any) {
+    if (!e.message?.includes('already exists')) {
+      console.error('Failed to create signal queue table:', e.message);
+    }
+  }
+}
+
+export type SignalQueueRecord = {
+  id?: number;
+  symbol: string;
+  timeframe: string;
+  signal_type: 'BUY' | 'SELL';
+  entry_price: number;
+  sl_price?: number;
+  tp1_price?: number;
+  tp2_price?: number;
+  tp3_price?: number;
+  tp4_price?: number;
+  tp5_price?: number;
+  tp6_price?: number;
+  signal_time: Date | string | number;
+  candle_close_time: Date | string | number;
+  is_fresh?: boolean;
+  volume_confirmed?: boolean;
+  status?: 'PENDING' | 'PROCESSED' | 'FAILED';
+};
+
+export async function addSignalToQueue(record: SignalQueueRecord) {
+  await ensureSignalQueueSchema();
+  
+  const toTimestamp = (date: Date | string | number): number => {
+    if (typeof date === 'number') return date;
+    const d = typeof date === 'string' ? new Date(date) : date;
+    return d.getTime();
+  };
+
+  const sql = `
+    INSERT INTO signal_queue (
+      symbol, timeframe, signal_type, entry_price,
+      sl_price, tp1_price, tp2_price, tp3_price, tp4_price, tp5_price, tp6_price,
+      signal_time, candle_close_time, is_fresh, volume_confirmed
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+  
+  return await query(sql, [
+    record.symbol,
+    record.timeframe,
+    record.signal_type,
+    record.entry_price,
+    record.sl_price || null,
+    record.tp1_price || null,
+    record.tp2_price || null,
+    record.tp3_price || null,
+    record.tp4_price || null,
+    record.tp5_price || null,
+    record.tp6_price || null,
+    toTimestamp(record.signal_time),
+    toTimestamp(record.candle_close_time),
+    record.is_fresh || false,
+    record.volume_confirmed || false,
+  ]);
+}
+
+export async function getPendingQueueSignals(limit: number = 100) {
+  await ensureSignalQueueSchema();
+  const now = Date.now();
+  const sql = `
+    SELECT * FROM signal_queue 
+    WHERE status = 'PENDING' AND candle_close_time <= ?
+    ORDER BY candle_close_time ASC
+    LIMIT ?
+  `;
+  return await query<SignalQueueRecord[]>(sql, [now, limit]);
+}
+
+export async function updateQueueSignalStatus(
+  id: number,
+  status: 'PROCESSED' | 'FAILED',
+  errorMessage?: string
+) {
+  await ensureSignalQueueSchema();
+  const sql = `
+    UPDATE signal_queue
+    SET status = ?, processed_at = NOW(), error_message = ?
+    WHERE id = ?
+  `;
+  return await query(sql, [status, errorMessage || null, id]);
+}
+
+export async function getQueueStats() {
+  await ensureSignalQueueSchema();
+  const sql = `
+    SELECT
+      COUNT(*) as total,
+      SUM(CASE WHEN status = 'PENDING' THEN 1 ELSE 0 END) as pending,
+      SUM(CASE WHEN status = 'PROCESSED' THEN 1 ELSE 0 END) as processed,
+      SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END) as failed
+    FROM signal_queue
+  `;
+  const rows = await query<any[]>(sql);
+  return rows[0] || { total: 0, pending: 0, processed: 0, failed: 0 };
+}
+
