@@ -155,13 +155,49 @@ export async function GET(req: NextRequest) {
       ? altFreshIndicators.reduce((sum, i) => sum + i.winRate, 0) / altFreshIndicators.length
       : 0
 
+    // Calculate volume trend (compare last 10 bars vs previous 50 bars average)
+    const recentVolumes = klineData.v.slice(-10)
+    const historicalVolumes = klineData.v.slice(-60, -10)
+    const recentAvgVolume = recentVolumes.reduce((a, b) => a + b, 0) / recentVolumes.length
+    const historicalAvgVolume = historicalVolumes.reduce((a, b) => a + b, 0) / historicalVolumes.length
+    const volumeChange = ((recentAvgVolume - historicalAvgVolume) / historicalAvgVolume) * 100
+    const volumeTrend = volumeChange > 10 ? 'UP' : volumeChange < -10 ? 'DOWN' : 'NEUTRAL'
+
+    // Calculate price change (24h and current session)
+    const price24hAgo = klineData.c[Math.max(0, klineData.c.length - 24)]
+    const currentPrice = klineData.c[klineData.c.length - 1]
+    const priceChange24h = ((currentPrice - price24hAgo) / price24hAgo) * 100
+    
+    // Get high/low of current period
+    const periodHigh = Math.max(...klineData.h.slice(-24))
+    const periodLow = Math.min(...klineData.l.slice(-24))
+
     return NextResponse.json({
       success: true,
       symbol,
       timeframe,
       altTimeframe,
-      currentPrice: klineData.c[klineData.c.length - 1],
+      currentPrice,
       timestamp: new Date(klineData.t[klineData.t.length - 1]).toISOString(),
+      
+      // Price analysis
+      priceAnalysis: {
+        current: currentPrice,
+        change24h: priceChange24h,
+        trend: priceChange24h > 1 ? 'UP' : priceChange24h < -1 ? 'DOWN' : 'NEUTRAL',
+        high24h: periodHigh,
+        low24h: periodLow,
+        fromHigh: ((currentPrice - periodHigh) / periodHigh) * 100,
+        fromLow: ((currentPrice - periodLow) / periodLow) * 100,
+      },
+      
+      // Volume analysis
+      volumeAnalysis: {
+        current: recentAvgVolume,
+        average: historicalAvgVolume,
+        change: volumeChange,
+        trend: volumeTrend,
+      },
 
       // Main timeframe consensus
       consensus: {

@@ -55,6 +55,21 @@ interface BTCTrendData {
   altTimeframe: string
   currentPrice: number
   timestamp: string
+  priceAnalysis: {
+    current: number
+    change24h: number
+    trend: 'UP' | 'DOWN' | 'NEUTRAL'
+    high24h: number
+    low24h: number
+    fromHigh: number
+    fromLow: number
+  }
+  volumeAnalysis: {
+    current: number
+    average: number
+    change: number
+    trend: 'UP' | 'DOWN' | 'NEUTRAL'
+  }
   consensus: {
     overall: 'BULLISH' | 'BEARISH' | 'NEUTRAL'
     strength: number
@@ -219,6 +234,136 @@ function BTCTrendPage() {
         {/* Main Content */}
         {data && (
           <>
+            {/* Price & Volume Analysis Card */}
+            <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-white dark:from-blue-950/20 dark:to-background">
+              <CardHeader>
+                <CardTitle className="text-2xl flex items-center gap-2">
+                  <span>💰</span> {data.symbol} Market Overview
+                </CardTitle>
+                <CardDescription>Real-time price and volume analysis</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Current Price */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Current Price</div>
+                    <div className="text-3xl font-bold text-gray-900 dark:text-white">
+                      ${data.priceAnalysis.current.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="mt-2 flex items-center gap-2">
+                      <Badge className={
+                        data.priceAnalysis.change24h >= 0 
+                          ? 'bg-green-500' 
+                          : 'bg-red-500'
+                      }>
+                        {data.priceAnalysis.change24h >= 0 ? '▲' : '▼'} {Math.abs(data.priceAnalysis.change24h).toFixed(2)}%
+                      </Badge>
+                      <span className="text-xs text-gray-500">24h</span>
+                    </div>
+                  </div>
+
+                  {/* Price Trend */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Price Trend</div>
+                    <div className="flex items-center gap-3 mt-2">
+                      {data.priceAnalysis.trend === 'UP' ? (
+                        <>
+                          <TrendingUp className="h-10 w-10 text-green-600" />
+                          <div>
+                            <div className="text-2xl font-bold text-green-600">UP</div>
+                            <div className="text-xs text-gray-500">Bullish momentum</div>
+                          </div>
+                        </>
+                      ) : data.priceAnalysis.trend === 'DOWN' ? (
+                        <>
+                          <TrendingDown className="h-10 w-10 text-red-600" />
+                          <div>
+                            <div className="text-2xl font-bold text-red-600">DOWN</div>
+                            <div className="text-xs text-gray-500">Bearish momentum</div>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <Minus className="h-10 w-10 text-gray-600" />
+                          <div>
+                            <div className="text-2xl font-bold text-gray-600">NEUTRAL</div>
+                            <div className="text-xs text-gray-500">Sideways</div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Volume Trend */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Volume Trend</div>
+                    <div className="flex items-center gap-3 mt-2">
+                      {data.volumeAnalysis.trend === 'UP' ? (
+                        <>
+                          <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center">
+                            <TrendingUp className="h-6 w-6 text-green-600" />
+                          </div>
+                          <div>
+                            <div className="text-2xl font-bold text-green-600">UP</div>
+                            <div className="text-xs text-gray-500">
+                              +{data.volumeAnalysis.change.toFixed(1)}% vs avg
+                            </div>
+                          </div>
+                        </>
+                      ) : data.volumeAnalysis.trend === 'DOWN' ? (
+                        <>
+                          <div className="h-10 w-10 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
+                            <TrendingDown className="h-6 w-6 text-red-600" />
+                          </div>
+                          <div>
+                            <div className="text-2xl font-bold text-red-600">DOWN</div>
+                            <div className="text-xs text-gray-500">
+                              {data.volumeAnalysis.change.toFixed(1)}% vs avg
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="h-10 w-10 rounded-full bg-gray-100 dark:bg-gray-900/20 flex items-center justify-center">
+                            <Minus className="h-6 w-6 text-gray-600" />
+                          </div>
+                          <div>
+                            <div className="text-2xl font-bold text-gray-600">STABLE</div>
+                            <div className="text-xs text-gray-500">Normal volume</div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* High/Low Range */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">24h Range</div>
+                    <div className="mt-2 space-y-2">
+                      <div>
+                        <div className="text-xs text-gray-500">High</div>
+                        <div className="text-lg font-bold text-green-600">
+                          ${data.priceAnalysis.high24h.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {data.priceAnalysis.fromHigh >= 0 ? '+' : ''}{data.priceAnalysis.fromHigh.toFixed(2)}% from current
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500">Low</div>
+                        <div className="text-lg font-bold text-red-600">
+                          ${data.priceAnalysis.low24h.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          +{data.priceAnalysis.fromLow.toFixed(2)}% from current
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Dual Timeframe Consensus */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Main Timeframe Consensus */}
@@ -236,20 +381,20 @@ function BTCTrendPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="text-center">
-                      <div className="text-xl font-bold">${data.currentPrice.toLocaleString()}</div>
-                      <div className="text-xs text-gray-600">Current Price</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-xl font-bold text-green-600">{data.consensus.freshBuyCount}</div>
+                    <div className="text-center p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                      <div className="text-2xl font-bold text-green-600">{data.consensus.freshBuyCount}</div>
                       <div className="text-xs text-gray-600">Fresh BUY</div>
                     </div>
-                    <div className="text-center">
-                      <div className="text-xl font-bold text-red-600">{data.consensus.freshSellCount}</div>
+                    <div className="text-center p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                      <div className="text-2xl font-bold text-red-600">{data.consensus.freshSellCount}</div>
                       <div className="text-xs text-gray-600">Fresh SELL</div>
                     </div>
-                    <div className="text-center">
-                      <div className="text-xl font-bold">{data.indicators.length}</div>
+                    <div className="text-center p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                      <div className="text-2xl font-bold text-blue-600">{data.consensus.buyCount}</div>
+                      <div className="text-xs text-gray-600">Total BUY</div>
+                    </div>
+                    <div className="text-center p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                      <div className="text-2xl font-bold text-purple-600">{data.indicators.length}</div>
                       <div className="text-xs text-gray-600">Indicators</div>
                     </div>
                   </div>
@@ -271,20 +416,20 @@ function BTCTrendPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="text-center">
-                      <div className="text-xl font-bold">${data.currentPrice.toLocaleString()}</div>
-                      <div className="text-xs text-gray-600">Current Price</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-xl font-bold text-green-600">{data.altConsensus.freshBuyCount}</div>
+                    <div className="text-center p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                      <div className="text-2xl font-bold text-green-600">{data.altConsensus.freshBuyCount}</div>
                       <div className="text-xs text-gray-600">Fresh BUY</div>
                     </div>
-                    <div className="text-center">
-                      <div className="text-xl font-bold text-red-600">{data.altConsensus.freshSellCount}</div>
+                    <div className="text-center p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                      <div className="text-2xl font-bold text-red-600">{data.altConsensus.freshSellCount}</div>
                       <div className="text-xs text-gray-600">Fresh SELL</div>
                     </div>
-                    <div className="text-center">
-                      <div className="text-xl font-bold">{data.altIndicators.length}</div>
+                    <div className="text-center p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                      <div className="text-2xl font-bold text-blue-600">{data.altConsensus.buyCount}</div>
+                      <div className="text-xs text-gray-600">Total BUY</div>
+                    </div>
+                    <div className="text-center p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                      <div className="text-2xl font-bold text-purple-600">{data.altIndicators.length}</div>
                       <div className="text-xs text-gray-600">Indicators</div>
                     </div>
                   </div>
