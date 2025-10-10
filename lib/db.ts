@@ -193,18 +193,20 @@ export async function ensureSignalHistorySchema() {
     await query(CREATE_SIGNAL_HISTORY_TABLE);
     console.log('Signal history table ensured');
 
-    // Add indicator_type column if it doesn't exist
+    // Check if indicator_type column exists
     try {
-      await query(`
-        ALTER TABLE signal_history
-        ADD COLUMN IF NOT EXISTS indicator_type ENUM('FIBONACCI_ALGO', 'RSI_MACD_EMA', 'MACD_BB', 'RSI_VOLUME_BB', 'SUPERTREND_EMA', 'EMA_CROSS_RSI') DEFAULT 'FIBONACCI_ALGO'
-        AFTER signal_type
-      `);
-    } catch (e: any) {
-      // Column might already exist, ignore error
-      if (!e.message?.includes('Duplicate column')) {
-        console.error('Failed to add indicator_type column:', e.message);
+      const columns = await query(`SHOW COLUMNS FROM signal_history LIKE 'indicator_type'`);
+      if (Array.isArray(columns) && columns.length === 0) {
+        // Column doesn't exist, add it
+        await query(`
+          ALTER TABLE signal_history
+          ADD COLUMN indicator_type ENUM('FIBONACCI_ALGO', 'RSI_MACD_EMA', 'MACD_BB', 'RSI_VOLUME_BB', 'SUPERTREND_EMA', 'EMA_CROSS_RSI') DEFAULT 'FIBONACCI_ALGO'
+          AFTER signal_type
+        `);
+        console.log('Added indicator_type column to signal_history');
       }
+    } catch (e: any) {
+      console.error('Failed to add indicator_type column to signal_history:', e.message);
     }
   } catch (e: any) {
     // Table might already exist, ignore error
@@ -475,18 +477,20 @@ export async function ensureSignalQueueSchema() {
     await query(CREATE_SIGNAL_QUEUE_TABLE);
     console.log('Signal queue table ensured');
 
-    // Add indicator_type column if it doesn't exist
+    // Check if indicator_type column exists
     try {
-      await query(`
-        ALTER TABLE signal_queue
-        ADD COLUMN IF NOT EXISTS indicator_type ENUM('FIBONACCI_ALGO', 'RSI_MACD_EMA', 'MACD_BB', 'RSI_VOLUME_BB', 'SUPERTREND_EMA', 'EMA_CROSS_RSI') DEFAULT 'FIBONACCI_ALGO'
-        AFTER signal_type
-      `);
-    } catch (e: any) {
-      // Column might already exist, ignore error
-      if (!e.message?.includes('Duplicate column')) {
-        console.error('Failed to add indicator_type column to signal_queue:', e.message);
+      const columns = await query(`SHOW COLUMNS FROM signal_queue LIKE 'indicator_type'`);
+      if (Array.isArray(columns) && columns.length === 0) {
+        // Column doesn't exist, add it
+        await query(`
+          ALTER TABLE signal_queue
+          ADD COLUMN indicator_type ENUM('FIBONACCI_ALGO', 'RSI_MACD_EMA', 'MACD_BB', 'RSI_VOLUME_BB', 'SUPERTREND_EMA', 'EMA_CROSS_RSI') DEFAULT 'FIBONACCI_ALGO'
+          AFTER signal_type
+        `);
+        console.log('Added indicator_type column to signal_queue');
       }
+    } catch (e: any) {
+      console.error('Failed to add indicator_type column to signal_queue:', e.message);
     }
   } catch (e: any) {
     if (!e.message?.includes('already exists')) {
