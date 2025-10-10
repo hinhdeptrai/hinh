@@ -568,9 +568,10 @@ export async function getPendingQueueSignals(limit: number = 100) {
   console.log('Current timestamp:', now);
   console.log('Current time ISO:', new Date(now).toISOString());
 
+  // MariaDB compatible: Use CAST to ensure proper BIGINT comparison
   const sql = `
     SELECT * FROM signal_queue
-    WHERE status = 'PENDING' AND candle_close_time <= ?
+    WHERE status = 'PENDING' AND candle_close_time <= CAST(? AS UNSIGNED)
     ORDER BY candle_close_time ASC
     LIMIT ${limit}
   `;

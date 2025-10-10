@@ -38,12 +38,29 @@ async function fetchBinanceKlines(
   url.searchParams.set('endTime', endTime.toString());
   url.searchParams.set('limit', '10');
 
+  console.log('Fetching Binance klines:', {
+    symbol,
+    interval,
+    startTime,
+    endTime,
+    startTimeISO: new Date(startTime).toISOString(),
+    endTimeISO: new Date(endTime).toISOString(),
+    url: url.toString()
+  });
+
   const response = await fetch(url.toString());
+
+  console.log('Binance response status:', response.status, response.statusText);
+
   if (!response.ok) {
-    throw new Error(`Binance API error: ${response.status} ${response.statusText}`);
+    const errorText = await response.text();
+    console.error('Binance API error response:', errorText);
+    throw new Error(`Binance API error: ${response.status} ${response.statusText} - ${errorText}`);
   }
 
-  return await response.json();
+  const data = await response.json();
+  console.log('Binance klines received:', data.length, 'candles');
+  return data;
 }
 
 // Process a single queued signal
