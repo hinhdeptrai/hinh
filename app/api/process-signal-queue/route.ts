@@ -8,6 +8,10 @@ import {
   SignalHistoryRecord,
 } from "@/lib/db"
 
+// Disable Next.js cache for this API route
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 // Parse timeframe to milliseconds
 function timeframeToMs(timeframe: string): number {
   const match = timeframe.match(/^(\d+)([mhd])$/i);
