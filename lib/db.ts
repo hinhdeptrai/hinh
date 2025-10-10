@@ -190,29 +190,29 @@ CREATE TABLE IF NOT EXISTS signal_history (
 
 export async function ensureSignalHistorySchema() {
   try {
-    await query(CREATE_SIGNAL_HISTORY_TABLE);
-    console.log('Signal history table ensured');
+    // Check if table exists and has indicator_type column
+    const tables = await query(`SHOW TABLES LIKE 'signal_history'`);
 
-    // Check if indicator_type column exists
-    try {
+    if (Array.isArray(tables) && tables.length > 0) {
+      // Table exists, check if it has indicator_type column
       const columns = await query(`SHOW COLUMNS FROM signal_history LIKE 'indicator_type'`);
+
       if (Array.isArray(columns) && columns.length === 0) {
-        // Column doesn't exist, add it
-        await query(`
-          ALTER TABLE signal_history
-          ADD COLUMN indicator_type ENUM('FIBONACCI_ALGO', 'RSI_MACD_EMA', 'MACD_BB', 'RSI_VOLUME_BB', 'SUPERTREND_EMA', 'EMA_CROSS_RSI') DEFAULT 'FIBONACCI_ALGO'
-          AFTER signal_type
-        `);
-        console.log('Added indicator_type column to signal_history');
+        // Column missing, drop and recreate table
+        console.log('signal_history missing indicator_type column, recreating...');
+        await query(`DROP TABLE signal_history`);
+        await query(CREATE_SIGNAL_HISTORY_TABLE);
+        console.log('signal_history table recreated with indicator_type');
+      } else {
+        console.log('signal_history table exists with indicator_type');
       }
-    } catch (e: any) {
-      console.error('Failed to add indicator_type column to signal_history:', e.message);
+    } else {
+      // Table doesn't exist, create it
+      await query(CREATE_SIGNAL_HISTORY_TABLE);
+      console.log('signal_history table created');
     }
   } catch (e: any) {
-    // Table might already exist, ignore error
-    if (!e.message?.includes('already exists')) {
-      console.error('Failed to create signal history table:', e.message);
-    }
+    console.error('Failed to ensure signal_history table:', e.message);
   }
 }
 
@@ -474,28 +474,29 @@ CREATE TABLE IF NOT EXISTS signal_queue (
 
 export async function ensureSignalQueueSchema() {
   try {
-    await query(CREATE_SIGNAL_QUEUE_TABLE);
-    console.log('Signal queue table ensured');
+    // Check if table exists and has indicator_type column
+    const tables = await query(`SHOW TABLES LIKE 'signal_queue'`);
 
-    // Check if indicator_type column exists
-    try {
+    if (Array.isArray(tables) && tables.length > 0) {
+      // Table exists, check if it has indicator_type column
       const columns = await query(`SHOW COLUMNS FROM signal_queue LIKE 'indicator_type'`);
+
       if (Array.isArray(columns) && columns.length === 0) {
-        // Column doesn't exist, add it
-        await query(`
-          ALTER TABLE signal_queue
-          ADD COLUMN indicator_type ENUM('FIBONACCI_ALGO', 'RSI_MACD_EMA', 'MACD_BB', 'RSI_VOLUME_BB', 'SUPERTREND_EMA', 'EMA_CROSS_RSI') DEFAULT 'FIBONACCI_ALGO'
-          AFTER signal_type
-        `);
-        console.log('Added indicator_type column to signal_queue');
+        // Column missing, drop and recreate table
+        console.log('signal_queue missing indicator_type column, recreating...');
+        await query(`DROP TABLE signal_queue`);
+        await query(CREATE_SIGNAL_QUEUE_TABLE);
+        console.log('signal_queue table recreated with indicator_type');
+      } else {
+        console.log('signal_queue table exists with indicator_type');
       }
-    } catch (e: any) {
-      console.error('Failed to add indicator_type column to signal_queue:', e.message);
+    } else {
+      // Table doesn't exist, create it
+      await query(CREATE_SIGNAL_QUEUE_TABLE);
+      console.log('signal_queue table created');
     }
   } catch (e: any) {
-    if (!e.message?.includes('already exists')) {
-      console.error('Failed to create signal queue table:', e.message);
-    }
+    console.error('Failed to ensure signal_queue table:', e.message);
   }
 }
 
