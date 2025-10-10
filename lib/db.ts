@@ -158,8 +158,8 @@ CREATE TABLE IF NOT EXISTS signal_history (
   id INT AUTO_INCREMENT PRIMARY KEY,
   symbol VARCHAR(20) NOT NULL,
   timeframe VARCHAR(10) NOT NULL,
-  signal_type ENUM('BUY', 'SELL') NOT NULL,
-  indicator_type ENUM('FIBONACCI_ALGO', 'RSI_MACD_EMA', 'MACD_BB', 'RSI_VOLUME_BB', 'SUPERTREND_EMA', 'EMA_CROSS_RSI') DEFAULT 'FIBONACCI_ALGO',
+  signal_type ENUM('BUY','SELL') NOT NULL,
+  indicator_type VARCHAR(50) DEFAULT 'FIBONACCI_ALGO',
   entry_price DECIMAL(20, 8) NOT NULL,
   sl_price DECIMAL(20, 8),
   tp1_price DECIMAL(20, 8),
@@ -168,14 +168,14 @@ CREATE TABLE IF NOT EXISTS signal_history (
   tp4_price DECIMAL(20, 8),
   tp5_price DECIMAL(20, 8),
   tp6_price DECIMAL(20, 8),
-  outcome ENUM('TP1', 'TP2', 'TP3', 'TP4', 'TP5', 'TP6', 'SL', 'NONE') DEFAULT 'NONE',
+  outcome ENUM('TP1','TP2','TP3','TP4','TP5','TP6','SL','NONE') DEFAULT 'NONE',
   outcome_price DECIMAL(20, 8),
   entry_time BIGINT NOT NULL COMMENT 'Unix timestamp in milliseconds',
   exit_time BIGINT NULL COMMENT 'Unix timestamp in milliseconds',
   bars_duration INT,
-  is_fresh BOOLEAN DEFAULT FALSE,
-  volume_confirmed BOOLEAN DEFAULT FALSE,
-  status ENUM('ACTIVE', 'MATCHED', 'NOT_FOUND') DEFAULT 'ACTIVE',
+  is_fresh TINYINT(1) DEFAULT 0,
+  volume_confirmed TINYINT(1) DEFAULT 0,
+  status ENUM('ACTIVE','MATCHED','NOT_FOUND') DEFAULT 'ACTIVE',
   binance_candle_time BIGINT NULL COMMENT 'Unix timestamp in milliseconds',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -185,7 +185,7 @@ CREATE TABLE IF NOT EXISTS signal_history (
   INDEX idx_outcome (outcome),
   INDEX idx_symbol_tf (symbol, timeframe),
   INDEX idx_indicator_type (indicator_type)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 `;
 
 export async function ensureSignalHistorySchema() {
@@ -446,8 +446,8 @@ CREATE TABLE IF NOT EXISTS signal_queue (
   id INT AUTO_INCREMENT PRIMARY KEY,
   symbol VARCHAR(20) NOT NULL,
   timeframe VARCHAR(10) NOT NULL,
-  signal_type ENUM('BUY', 'SELL') NOT NULL,
-  indicator_type ENUM('FIBONACCI_ALGO', 'RSI_MACD_EMA', 'MACD_BB', 'RSI_VOLUME_BB', 'SUPERTREND_EMA', 'EMA_CROSS_RSI') DEFAULT 'FIBONACCI_ALGO',
+  signal_type ENUM('BUY','SELL') NOT NULL,
+  indicator_type VARCHAR(50) DEFAULT 'FIBONACCI_ALGO',
   entry_price DECIMAL(20, 8) NOT NULL,
   sl_price DECIMAL(20, 8),
   tp1_price DECIMAL(20, 8),
@@ -458,9 +458,9 @@ CREATE TABLE IF NOT EXISTS signal_queue (
   tp6_price DECIMAL(20, 8),
   signal_time BIGINT NOT NULL COMMENT 'Unix timestamp in milliseconds when signal appeared',
   candle_close_time BIGINT NOT NULL COMMENT 'Unix timestamp in milliseconds when candle closes',
-  is_fresh BOOLEAN DEFAULT FALSE,
-  volume_confirmed BOOLEAN DEFAULT FALSE,
-  status ENUM('PENDING', 'PROCESSED', 'FAILED') DEFAULT 'PENDING',
+  is_fresh TINYINT(1) DEFAULT 0,
+  volume_confirmed TINYINT(1) DEFAULT 0,
+  status ENUM('PENDING','PROCESSED','FAILED') DEFAULT 'PENDING',
   processed_at TIMESTAMP NULL,
   error_message TEXT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -469,7 +469,7 @@ CREATE TABLE IF NOT EXISTS signal_queue (
   INDEX idx_status_closetime (status, candle_close_time),
   INDEX idx_symbol_tf (symbol, timeframe),
   INDEX idx_indicator_type (indicator_type)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 `;
 
 export async function ensureSignalQueueSchema() {
