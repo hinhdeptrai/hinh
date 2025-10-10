@@ -236,8 +236,8 @@ export async function storeSignal(record: SignalHistoryRecord) {
       symbol, timeframe, signal_type, entry_price,
       sl_price, tp1_price, tp2_price, tp3_price, tp4_price, tp5_price, tp6_price,
       outcome, outcome_price, entry_time, exit_time, bars_duration,
-      is_fresh, volume_confirmed
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      is_fresh, volume_confirmed, binance_candle_time
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
   return await query(sql, [
     record.symbol,
@@ -258,6 +258,7 @@ export async function storeSignal(record: SignalHistoryRecord) {
     record.bars_duration || null,
     record.is_fresh || false,
     record.volume_confirmed || false,
+    toTimestamp(record.binance_candle_time),
   ]);
 }
 
@@ -520,12 +521,12 @@ export async function getPendingQueueSignals(limit: number = 100) {
   await ensureSignalQueueSchema();
   const now = Date.now();
   const sql = `
-    SELECT * FROM signal_queue 
+    SELECT * FROM signal_queue
     WHERE status = 'PENDING' AND candle_close_time <= ?
     ORDER BY candle_close_time ASC
-    LIMIT ?
+    LIMIT ${limit}
   `;
-  return await query<SignalQueueRecord[]>(sql, [now, limit]);
+  return await query<SignalQueueRecord[]>(sql, [now]);
 }
 
 export async function updateQueueSignalStatus(
