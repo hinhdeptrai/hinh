@@ -88,6 +88,7 @@ async function processQueuedSignal(queuedSignal: SignalQueueRecord) {
       symbol: queuedSignal.symbol,
       timeframe: queuedSignal.timeframe,
       signal_type: queuedSignal.signal_type,
+      indicator_type: queuedSignal.indicator_type,
       entry_price: candleClosePrice, // Use actual close price from Binance
       sl_price: queuedSignal.sl_price,
       tp1_price: queuedSignal.tp1_price,

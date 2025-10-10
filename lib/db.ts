@@ -159,6 +159,7 @@ CREATE TABLE IF NOT EXISTS signal_history (
   symbol VARCHAR(20) NOT NULL,
   timeframe VARCHAR(10) NOT NULL,
   signal_type ENUM('BUY', 'SELL') NOT NULL,
+  indicator_type ENUM('FIBONACCI_ALGO', 'RSI_MACD_EMA', 'MACD_BB', 'RSI_VOLUME_BB', 'SUPERTREND_EMA', 'EMA_CROSS_RSI') DEFAULT 'FIBONACCI_ALGO',
   entry_price DECIMAL(20, 8) NOT NULL,
   sl_price DECIMAL(20, 8),
   tp1_price DECIMAL(20, 8),
@@ -182,7 +183,8 @@ CREATE TABLE IF NOT EXISTS signal_history (
   INDEX idx_timeframe (timeframe),
   INDEX idx_entry_time (entry_time),
   INDEX idx_outcome (outcome),
-  INDEX idx_symbol_tf (symbol, timeframe)
+  INDEX idx_symbol_tf (symbol, timeframe),
+  INDEX idx_indicator_type (indicator_type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 `;
 
@@ -190,6 +192,20 @@ export async function ensureSignalHistorySchema() {
   try {
     await query(CREATE_SIGNAL_HISTORY_TABLE);
     console.log('Signal history table ensured');
+
+    // Add indicator_type column if it doesn't exist
+    try {
+      await query(`
+        ALTER TABLE signal_history
+        ADD COLUMN IF NOT EXISTS indicator_type ENUM('FIBONACCI_ALGO', 'RSI_MACD_EMA', 'MACD_BB', 'RSI_VOLUME_BB', 'SUPERTREND_EMA', 'EMA_CROSS_RSI') DEFAULT 'FIBONACCI_ALGO'
+        AFTER signal_type
+      `);
+    } catch (e: any) {
+      // Column might already exist, ignore error
+      if (!e.message?.includes('Duplicate column')) {
+        console.error('Failed to add indicator_type column:', e.message);
+      }
+    }
   } catch (e: any) {
     // Table might already exist, ignore error
     if (!e.message?.includes('already exists')) {
@@ -204,6 +220,7 @@ export type SignalHistoryRecord = {
   symbol: string;
   timeframe: string;
   signal_type: 'BUY' | 'SELL';
+  indicator_type?: 'FIBONACCI_ALGO' | 'RSI_MACD_EMA' | 'MACD_BB' | 'RSI_VOLUME_BB' | 'SUPERTREND_EMA' | 'EMA_CROSS_RSI';
   entry_price: number;
   sl_price?: number;
   tp1_price?: number;
@@ -233,16 +250,17 @@ export async function storeSignal(record: SignalHistoryRecord) {
 
   const sql = `
     INSERT INTO signal_history (
-      symbol, timeframe, signal_type, entry_price,
+      symbol, timeframe, signal_type, indicator_type, entry_price,
       sl_price, tp1_price, tp2_price, tp3_price, tp4_price, tp5_price, tp6_price,
       outcome, outcome_price, entry_time, exit_time, bars_duration,
       is_fresh, volume_confirmed, binance_candle_time
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
   return await query(sql, [
     record.symbol,
     record.timeframe,
     record.signal_type,
+    record.indicator_type || 'FIBONACCI_ALGO',
     record.entry_price,
     record.sl_price || null,
     record.tp1_price || null,
@@ -427,6 +445,7 @@ CREATE TABLE IF NOT EXISTS signal_queue (
   symbol VARCHAR(20) NOT NULL,
   timeframe VARCHAR(10) NOT NULL,
   signal_type ENUM('BUY', 'SELL') NOT NULL,
+  indicator_type ENUM('FIBONACCI_ALGO', 'RSI_MACD_EMA', 'MACD_BB', 'RSI_VOLUME_BB', 'SUPERTREND_EMA', 'EMA_CROSS_RSI') DEFAULT 'FIBONACCI_ALGO',
   entry_price DECIMAL(20, 8) NOT NULL,
   sl_price DECIMAL(20, 8),
   tp1_price DECIMAL(20, 8),
@@ -446,7 +465,8 @@ CREATE TABLE IF NOT EXISTS signal_queue (
   INDEX idx_status (status),
   INDEX idx_candle_close (candle_close_time),
   INDEX idx_status_closetime (status, candle_close_time),
-  INDEX idx_symbol_tf (symbol, timeframe)
+  INDEX idx_symbol_tf (symbol, timeframe),
+  INDEX idx_indicator_type (indicator_type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 `;
 
@@ -454,6 +474,20 @@ export async function ensureSignalQueueSchema() {
   try {
     await query(CREATE_SIGNAL_QUEUE_TABLE);
     console.log('Signal queue table ensured');
+
+    // Add indicator_type column if it doesn't exist
+    try {
+      await query(`
+        ALTER TABLE signal_queue
+        ADD COLUMN IF NOT EXISTS indicator_type ENUM('FIBONACCI_ALGO', 'RSI_MACD_EMA', 'MACD_BB', 'RSI_VOLUME_BB', 'SUPERTREND_EMA', 'EMA_CROSS_RSI') DEFAULT 'FIBONACCI_ALGO'
+        AFTER signal_type
+      `);
+    } catch (e: any) {
+      // Column might already exist, ignore error
+      if (!e.message?.includes('Duplicate column')) {
+        console.error('Failed to add indicator_type column to signal_queue:', e.message);
+      }
+    }
   } catch (e: any) {
     if (!e.message?.includes('already exists')) {
       console.error('Failed to create signal queue table:', e.message);
@@ -466,6 +500,7 @@ export type SignalQueueRecord = {
   symbol: string;
   timeframe: string;
   signal_type: 'BUY' | 'SELL';
+  indicator_type?: 'FIBONACCI_ALGO' | 'RSI_MACD_EMA' | 'MACD_BB' | 'RSI_VOLUME_BB' | 'SUPERTREND_EMA' | 'EMA_CROSS_RSI';
   entry_price: number;
   sl_price?: number;
   tp1_price?: number;
@@ -492,16 +527,17 @@ export async function addSignalToQueue(record: SignalQueueRecord) {
 
   const sql = `
     INSERT INTO signal_queue (
-      symbol, timeframe, signal_type, entry_price,
+      symbol, timeframe, signal_type, indicator_type, entry_price,
       sl_price, tp1_price, tp2_price, tp3_price, tp4_price, tp5_price, tp6_price,
       signal_time, candle_close_time, is_fresh, volume_confirmed
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
-  
+
   return await query(sql, [
     record.symbol,
     record.timeframe,
     record.signal_type,
+    record.indicator_type || 'FIBONACCI_ALGO',
     record.entry_price,
     record.sl_price || null,
     record.tp1_price || null,

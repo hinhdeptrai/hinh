@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
         symbol: body.symbol,
         timeframe: body.timeframe,
         signal_type: body.signal_type,
+        indicator_type: body.indicator_type,
         entry_price: body.entry_price,
         sl_price: body.sl_price,
         tp1_price: body.tp1_price,
