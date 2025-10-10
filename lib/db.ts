@@ -561,13 +561,23 @@ export async function addSignalToQueue(record: SignalQueueRecord) {
 export async function getPendingQueueSignals(limit: number = 100) {
   await ensureSignalQueueSchema();
   const now = Date.now();
+
+  // Debug: log all signals in queue
+  const allSignals = await query(`SELECT id, symbol, status, candle_close_time, created_at FROM signal_queue ORDER BY created_at DESC LIMIT 10`);
+  console.log('All signals in queue:', allSignals);
+  console.log('Current timestamp:', now);
+  console.log('Current time ISO:', new Date(now).toISOString());
+
   const sql = `
     SELECT * FROM signal_queue
     WHERE status = 'PENDING' AND candle_close_time <= ?
     ORDER BY candle_close_time ASC
     LIMIT ${limit}
   `;
-  return await query<SignalQueueRecord[]>(sql, [now]);
+  const pending = await query<SignalQueueRecord[]>(sql, [now]);
+  console.log('Pending signals found:', pending.length);
+
+  return pending;
 }
 
 export async function updateQueueSignalStatus(
@@ -595,6 +605,9 @@ export async function getQueueStats() {
     FROM signal_queue
   `;
   const rows = await query<any[]>(sql);
-  return rows[0] || { total: 0, pending: 0, processed: 0, failed: 0 };
+  console.log('Queue stats raw:', rows);
+  const stats = rows[0] || { total: 0, pending: 0, processed: 0, failed: 0 };
+  console.log('Queue stats:', stats);
+  return stats;
 }
 
