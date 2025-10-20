@@ -15,24 +15,38 @@ class PaperManager {
   totalTrades = 0
   wins = 0
 
+  simulateExecution(side: 'buy' | 'sell', price: number, size: number): { executedPrice: number; fee: number } {
+    // Simulate slippage 0.1%
+    const slippage = side === 'buy' ? 1.001 : 0.999
+    const executedPrice = price * slippage
+    // Simulate fee 0.08% taker
+    const feeRate = 0.0008
+    const notional = executedPrice * size
+    const fee = notional * feeRate
+    return { executedPrice, fee }
+  }
+
   openPosition(p: PaperPosition) {
     if (this.positions.has(p.symbol)) {
       return { success: false, reason: 'position_exists' }
     }
-    this.positions.set(p.symbol, p)
+    const { executedPrice, fee } = this.simulateExecution(p.side, p.entry, p.size)
+    this.balance -= fee
+    this.positions.set(p.symbol, { ...p, entry: executedPrice })
     this.totalTrades++
-    return { success: true }
+    return { success: true, executedPrice, fee }
   }
 
   closePosition(symbol: string, price: number) {
     const pos = this.positions.get(symbol)
     if (!pos) return { success: false, reason: 'no_position' }
-    const pnl = pos.side === 'buy' ? (price - pos.entry) * pos.size : (pos.entry - price) * pos.size
-    this.balance += pnl
-    this.totalPnl += pnl
-    if (pnl > 0) this.wins++
+    const { executedPrice, fee } = this.simulateExecution(pos.side === 'buy' ? 'sell' : 'buy', price, pos.size)
+    const pnl = pos.side === 'buy' ? (executedPrice - pos.entry) * pos.size : (pos.entry - executedPrice) * pos.size
+    this.balance += pnl - fee
+    this.totalPnl += pnl - fee
+    if (pnl > fee) this.wins++
     this.positions.delete(symbol)
-    return { success: true, pnl }
+    return { success: true, pnl: pnl - fee, executedPrice, fee }
   }
   
   checkTriggers(symbol: string, price: number) {

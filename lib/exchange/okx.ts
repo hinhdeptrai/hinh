@@ -213,6 +213,23 @@ export function computePositionSizeByRisk(params: {
   return Math.max(0, Math.floor(size * 1000) / 1000) // round down 0.001
 }
 
+export async function computePositionSizeByRiskAsync(params: {
+  symbol: string
+  balanceUSDT: number
+  riskPercent: number
+  entry: number
+  stop: number
+}): Promise<number> {
+  const riskAmount = params.balanceUSDT * params.riskPercent
+  const perUnitRisk = Math.max(Math.abs(params.entry - params.stop), 1e-9)
+  const notional = riskAmount / perUnitRisk
+  const instId = toOkxInstId(params.symbol)
+  const meta = await getInstrumentMeta(instId)
+  let size = notional
+  if (meta.ctVal) size = notional / meta.ctVal
+  return Math.max(0, quantizeByDecimals(size, meta.lotSz))
+}
+
 export function computeTpSlPrices(params: {
   side: 'buy' | 'sell'
   entry: number

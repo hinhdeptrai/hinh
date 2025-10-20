@@ -1,7 +1,9 @@
 import { NextRequest } from "next/server"
 import { normalizeSide, isSymbolWhitelisted, clampSize } from '@/lib/exchange/guards'
-import { fetchAccountBalanceUSDT, computePositionSizeByRisk, placeOrder, computeTpSlPrices, placePrimaryTpSl, getLeverage, clampByLeverageNotional, validateOrderSize, getPosition } from '@/lib/exchange/okx'
+import { fetchAccountBalanceUSDT, computePositionSizeByRiskAsync, placeOrder, computeTpSlPrices, placePrimaryTpSl, getLeverage, clampByLeverageNotional, validateOrderSize, getPosition } from '@/lib/exchange/okx'
 import { cooldownManager, dailyLossLimiter, checkMaxPositions } from '@/lib/exchange/risk'
+import { getTradeLogger } from '@/lib/exchange/logger'
+import { getPositionManager } from '@/lib/exchange/position-manager'
 import {
   getPendingQueueSignals,
   updateQueueSignalStatus,
@@ -153,7 +155,7 @@ async function processQueuedSignal(queuedSignal: SignalQueueRecord) {
           if (position) {
             execResult = { skipped: true, reason: 'position_open' }
           } else {
-            const sizeRisk = computePositionSizeByRisk({ balanceUSDT: balance, riskPercent, entry: candleClosePrice, stop })
+            const sizeRisk = await computePositionSizeByRiskAsync({ symbol: queuedSignal.symbol, balanceUSDT: balance, riskPercent, entry: candleClosePrice, stop })
             const lev = getLeverage()
             const sizeLev = clampByLeverageNotional({ balanceUSDT: balance, leverage: lev, entry: candleClosePrice, size: sizeRisk })
             const sizeClamped = clampSize(sizeLev)
@@ -166,6 +168,29 @@ async function processQueuedSignal(queuedSignal: SignalQueueRecord) {
               const primaryTp = takeProfits[0]
               const tpSlRes = await placePrimaryTpSl({ symbol: queuedSignal.symbol, side, entry: candleClosePrice, sl: stopLoss, tp: primaryTp, size: sizeValidated })
               execResult = { entry: entryRes, tpsl: tpSlRes }
+              // Log entry
+              const logger = getTradeLogger()
+              await logger.logWithAlert({
+                timestamp: Date.now(),
+                symbol: queuedSignal.symbol,
+                action: 'entry',
+                side,
+                price: candleClosePrice,
+                size: sizeValidated,
+                orderId: entryRes.orderId || 'unknown',
+              }, false)
+              // Track position with algo IDs
+              const pm = getPositionManager()
+              pm.addPosition({
+                symbol: queuedSignal.symbol,
+                side,
+                entryPrice: candleClosePrice,
+                totalSize: sizeValidated,
+                remainingSize: sizeValidated,
+                tpLevels: [{ price: primaryTp, size: sizeValidated, filled: false }],
+                slPrice: stopLoss,
+                algoIds: [tpSlRes.algoId || ''],
+              })
               // cooldown record
               cooldownManager.recordTrade(queuedSignal.symbol)
             } else {
