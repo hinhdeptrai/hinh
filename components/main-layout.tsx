@@ -94,6 +94,16 @@ export default function MainLayout({
               >
                 📈 Tracking
               </Link>
+              <Link
+                href="/bot-admin"
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
+                  pathname === "/bot-admin"
+                    ? "bg-green-100 text-green-700"
+                    : "text-gray-600 hover:bg-green-50 hover:text-green-700"
+                }`}
+              >
+                🤖 Bot Admin
+              </Link>
             </nav>
           </div>
           <LogoutButton />
