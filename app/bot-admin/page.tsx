@@ -71,6 +71,21 @@ export default function BotAdminPage() {
     }
   }
 
+  const resetFailedSignals = async () => {
+    if (!confirm('Reset all FAILED signals back to PENDING?')) return
+    setLoading(true)
+    try {
+      const res = await fetch('/api/reset-failed-signals', { method: 'POST' })
+      const data = await res.json()
+      alert(`Reset ${data.affected?.affectedRows || 0} signals`)
+      fetchQueueStats()
+    } catch (err) {
+      alert('Failed to reset signals')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
     fetchStatus()
     fetchQueueStats()
@@ -106,6 +121,11 @@ export default function BotAdminPage() {
           <Button onClick={processQueue} disabled={loading} size="sm">
             {loading ? '⏳ Processing...' : '⚡ Process Queue Now'}
           </Button>
+          {queueStats?.stats?.failed > 0 && (
+            <Button onClick={resetFailedSignals} disabled={loading} variant="outline" size="sm">
+              🔄 Reset Failed
+            </Button>
+          )}
         </div>
       </div>
 
@@ -153,7 +173,7 @@ export default function BotAdminPage() {
       {queueStats && (
         <Card className="p-4">
           <h2 className="text-xl font-bold mb-3">📊 Queue Status</h2>
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-5 gap-4 mb-4">
             <div>
               <div className="text-sm text-gray-500">Total</div>
               <div className="text-xl font-bold">{queueStats.stats?.total || 0}</div>
@@ -161,6 +181,10 @@ export default function BotAdminPage() {
             <div>
               <div className="text-sm text-gray-500">Pending</div>
               <div className="text-xl font-bold text-yellow-600">{queueStats.stats?.pending || 0}</div>
+            </div>
+            <div>
+              <div className="text-sm text-gray-500">Ready</div>
+              <div className="text-xl font-bold text-blue-600">{queueStats.stats?.ready_to_process || 0}</div>
             </div>
             <div>
               <div className="text-sm text-gray-500">Processed</div>
@@ -171,6 +195,70 @@ export default function BotAdminPage() {
               <div className="text-xl font-bold text-red-600">{queueStats.stats?.failed || 0}</div>
             </div>
           </div>
+
+          {/* Queue Details Table */}
+          {queueStats.signals && queueStats.signals.length > 0 && (
+            <div className="mt-4">
+              <h3 className="text-sm font-bold mb-2">Queue Details</h3>
+              <div className="overflow-x-auto max-h-64 overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-100 sticky top-0">
+                    <tr>
+                      <th className="text-left p-2">Symbol</th>
+                      <th className="text-left p-2">TF</th>
+                      <th className="text-left p-2">Side</th>
+                      <th className="text-left p-2">Status</th>
+                      <th className="text-left p-2">Ready</th>
+                      <th className="text-right p-2">Minutes</th>
+                      <th className="text-left p-2">Error</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {queueStats.signals.map((sig: any, i: number) => (
+                      <tr key={i} className="border-b hover:bg-gray-50">
+                        <td className="p-2 font-mono text-xs">{sig.symbol}</td>
+                        <td className="p-2">{sig.timeframe}</td>
+                        <td className="p-2">
+                          <Badge variant={sig.signal_type === 'BUY' ? 'default' : 'destructive'} className="text-xs">
+                            {sig.signal_type}
+                          </Badge>
+                        </td>
+                        <td className="p-2">
+                          <Badge 
+                            variant={
+                              sig.status === 'PROCESSED' ? 'default' : 
+                              sig.status === 'FAILED' ? 'destructive' : 
+                              'secondary'
+                            }
+                            className="text-xs"
+                          >
+                            {sig.status}
+                          </Badge>
+                        </td>
+                        <td className="p-2">
+                          {sig.ready_status === 'READY' ? (
+                            <span className="text-green-600 font-bold">✓</span>
+                          ) : (
+                            <span className="text-yellow-600">⏳</span>
+                          )}
+                        </td>
+                        <td className="p-2 text-right font-mono">
+                          {sig.minutes_until_close > 0 ? (
+                            <span className="text-yellow-600">+{sig.minutes_until_close}m</span>
+                          ) : (
+                            <span className="text-green-600">{Math.abs(sig.minutes_until_close).toFixed(0)}m ago</span>
+                          )}
+                        </td>
+                        <td className="p-2 text-xs text-red-600 truncate max-w-xs">
+                          {sig.error_message || '-'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </Card>
       )}
 

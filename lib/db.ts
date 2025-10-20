@@ -243,6 +243,8 @@ export type SignalHistoryRecord = {
 };
 
 export async function storeSignal(record: SignalHistoryRecord) {
+  await ensureSignalHistorySchema();
+  
   // Convert date to Unix timestamp in milliseconds
   const toTimestamp = (date: Date | string | undefined | null): number | null => {
     if (!date) return null;
