@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server"
 import { normalizeSide, isSymbolWhitelisted, clampSize } from '@/lib/exchange/guards'
-import { fetchAccountBalanceUSDT, computePositionSizeByRisk, placeOrder, computeTpSlPrices, placePrimaryTpSl, getLeverage, clampByLeverageNotional, validateOrderSize } from '@/lib/exchange/okx'
+import { fetchAccountBalanceUSDT, computePositionSizeByRisk, placeOrder, computeTpSlPrices, placePrimaryTpSl, getLeverage, clampByLeverageNotional, validateOrderSize, getPosition } from '@/lib/exchange/okx'
+import { cooldownManager, dailyLossLimiter, checkMaxPositions } from '@/lib/exchange/risk'
 import {
   getPendingQueueSignals,
   updateQueueSignalStatus,
@@ -136,22 +137,41 @@ async function processQueuedSignal(queuedSignal: SignalQueueRecord) {
       try {
         const side = normalizeSide(queuedSignal.signal_type as any)
         if (side) {
+          // Risk gates
+          if (!cooldownManager.canTrade(queuedSignal.symbol)) {
+            execResult = { skipped: true, reason: 'cooldown' }
+          } else if (!dailyLossLimiter.canTrade()) {
+            execResult = { skipped: true, reason: 'daily_loss_limit' }
+          } else if (!(await checkMaxPositions(3))) {
+            execResult = { skipped: true, reason: 'max_positions' }
+          } else {
           const balance = await fetchAccountBalanceUSDT()
           const riskPercent = Number(process.env.DEFAULT_RISK_PERCENT ?? '0.01')
           const stop = queuedSignal.sl_price || (side === 'buy' ? candleClosePrice * 0.98 : candleClosePrice * 1.02)
-          const sizeRisk = computePositionSizeByRisk({ balanceUSDT: balance, riskPercent, entry: candleClosePrice, stop })
-          const lev = getLeverage()
-          const sizeLev = clampByLeverageNotional({ balanceUSDT: balance, leverage: lev, entry: candleClosePrice, size: sizeRisk })
-          const sizeClamped = clampSize(sizeLev)
-          const { ok, size: sizeValidated } = validateOrderSize(sizeClamped)
-          if (ok && sizeValidated > 0) {
-            // 1) place entry
-            const entryRes = await placeOrder({ symbol: queuedSignal.symbol, side, type: 'market', size: sizeValidated, reduceOnly: false })
-            // 2) place TP/SL
-            const { takeProfits, stopLoss } = computeTpSlPrices({ side, entry: candleClosePrice, sl: stop })
-            const primaryTp = takeProfits[0]
-            const tpSlRes = await placePrimaryTpSl({ symbol: queuedSignal.symbol, side, entry: candleClosePrice, sl: stopLoss, tp: primaryTp, size: sizeValidated })
-            execResult = { entry: entryRes, tpsl: tpSlRes }
+          // Single-position per symbol: skip if already open
+          const position = await getPosition(queuedSignal.symbol)
+          if (position) {
+            execResult = { skipped: true, reason: 'position_open' }
+          } else {
+            const sizeRisk = computePositionSizeByRisk({ balanceUSDT: balance, riskPercent, entry: candleClosePrice, stop })
+            const lev = getLeverage()
+            const sizeLev = clampByLeverageNotional({ balanceUSDT: balance, leverage: lev, entry: candleClosePrice, size: sizeRisk })
+            const sizeClamped = clampSize(sizeLev)
+            const { ok, size: sizeValidated } = validateOrderSize(sizeClamped)
+            if (ok && sizeValidated > 0) {
+              // 1) place entry
+              const entryRes = await placeOrder({ symbol: queuedSignal.symbol, side, type: 'market', size: sizeValidated, reduceOnly: false })
+              // 2) place TP/SL
+              const { takeProfits, stopLoss } = computeTpSlPrices({ side, entry: candleClosePrice, sl: stop })
+              const primaryTp = takeProfits[0]
+              const tpSlRes = await placePrimaryTpSl({ symbol: queuedSignal.symbol, side, entry: candleClosePrice, sl: stopLoss, tp: primaryTp, size: sizeValidated })
+              execResult = { entry: entryRes, tpsl: tpSlRes }
+              // cooldown record
+              cooldownManager.recordTrade(queuedSignal.symbol)
+            } else {
+              execResult = { skipped: true, reason: 'size_invalid' }
+            }
+          }
           }
         }
       } catch (e: any) {
