@@ -56,6 +56,16 @@ export default function BotAdminPage() {
     }
   }
 
+  const fetchLogs = async () => {
+    try {
+      const res = await fetch('/api/trade-logs')
+      const data = await res.json()
+      setLogs(data.logs || [])
+    } catch (err) {
+      console.error('Failed to fetch logs:', err)
+    }
+  }
+
   const processQueue = async () => {
     setLoading(true)
     try {
@@ -64,6 +74,7 @@ export default function BotAdminPage() {
       alert(`Processed: ${data.processed}, Failed: ${data.failed}`)
       fetchStatus()
       fetchQueueStats()
+      fetchLogs()
     } catch (err) {
       alert('Failed to process queue')
     } finally {
@@ -86,14 +97,29 @@ export default function BotAdminPage() {
     }
   }
 
+  const testTrade = async () => {
+    setLoading(true)
+    try {
+      await fetch('/api/test-trade', { method: 'POST' })
+      fetchLogs()
+      alert('Test trade logged!')
+    } catch (err) {
+      alert('Failed to create test trade')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
     fetchStatus()
     fetchQueueStats()
+    fetchLogs()
     
     if (autoRefresh) {
       const interval = setInterval(() => {
         fetchStatus()
         fetchQueueStats()
+        fetchLogs()
       }, 10000) // 10s
       return () => clearInterval(interval)
     }
@@ -301,9 +327,14 @@ export default function BotAdminPage() {
 
       {/* Trade Logs */}
       <Card className="p-4">
-        <h2 className="text-xl font-bold mb-3">📝 Recent Activity</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xl font-bold">📝 Recent Activity</h2>
+          <Button onClick={testTrade} disabled={loading} variant="outline" size="sm">
+            🧪 Test Trade
+          </Button>
+        </div>
         {logs.length === 0 ? (
-          <div className="text-gray-500 text-center py-8">No recent activity</div>
+          <div className="text-gray-500 text-center py-8">No recent activity. Click "Test Trade" to create a sample.</div>
         ) : (
           <div className="space-y-2">
             {logs.map((log, i) => (
