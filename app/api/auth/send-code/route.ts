@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { storeAuthCode, cleanupExpiredCodes } from "@/lib/db";
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_ADMIN_CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID;
+const TELEGRAM_ADMIN_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 export async function POST(req: NextRequest) {
   try {

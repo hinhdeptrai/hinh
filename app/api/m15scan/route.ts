@@ -76,10 +76,10 @@ export async function GET(req: NextRequest) {
   const includeBlocked = searchParams.get("includeBlocked") === "1"
   const symbolsStr = searchParams.get("symbols")
   const token = process.env.TELEGRAM_BOT_TOKEN
-  const chatId = searchParams.get("chat_id") || process.env.TELEGRAM_ADMIN_CHAT_ID
+  const chatId = searchParams.get("chat_id") || process.env.TELEGRAM_CHAT_ID
 
   if (!token || !chatId) {
-    return Response.json({ error: 'Missing TELEGRAM_BOT_TOKEN or TELEGRAM_ADMIN_CHAT_ID' }, { status: 400 })
+    return Response.json({ error: 'Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID' }, { status: 400 })
   }
 
   const all = (symbolsStr ? symbolsStr.split(",") : DEFAULT_SYMBOLS)

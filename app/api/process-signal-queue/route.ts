@@ -1,4 +1,6 @@
 import { NextRequest } from "next/server"
+import { normalizeSide, isSymbolWhitelisted, clampSize } from '@/lib/exchange/guards'
+import { fetchAccountBalanceUSDT, computePositionSizeByRisk, placeOrder, computeTpSlPrices, placePrimaryTpSl, getLeverage, clampByLeverageNotional, validateOrderSize } from '@/lib/exchange/okx'
 import {
   getPendingQueueSignals,
   updateQueueSignalStatus,
@@ -127,6 +129,36 @@ async function processQueuedSignal(queuedSignal: SignalQueueRecord) {
     // Store in signal history
     await storeSignal(historyRecord);
 
+    // Optional auto-execute order via OKX if enabled and symbol is whitelisted
+    let execResult: any = null
+    const autoTrade = (process.env.AUTO_TRADE ?? 'false') === 'true'
+    if (autoTrade && isSymbolWhitelisted(queuedSignal.symbol)) {
+      try {
+        const side = normalizeSide(queuedSignal.signal_type as any)
+        if (side) {
+          const balance = await fetchAccountBalanceUSDT()
+          const riskPercent = Number(process.env.DEFAULT_RISK_PERCENT ?? '0.01')
+          const stop = queuedSignal.sl_price || (side === 'buy' ? candleClosePrice * 0.98 : candleClosePrice * 1.02)
+          const sizeRisk = computePositionSizeByRisk({ balanceUSDT: balance, riskPercent, entry: candleClosePrice, stop })
+          const lev = getLeverage()
+          const sizeLev = clampByLeverageNotional({ balanceUSDT: balance, leverage: lev, entry: candleClosePrice, size: sizeRisk })
+          const sizeClamped = clampSize(sizeLev)
+          const { ok, size: sizeValidated } = validateOrderSize(sizeClamped)
+          if (ok && sizeValidated > 0) {
+            // 1) place entry
+            const entryRes = await placeOrder({ symbol: queuedSignal.symbol, side, type: 'market', size: sizeValidated, reduceOnly: false })
+            // 2) place TP/SL
+            const { takeProfits, stopLoss } = computeTpSlPrices({ side, entry: candleClosePrice, sl: stop })
+            const primaryTp = takeProfits[0]
+            const tpSlRes = await placePrimaryTpSl({ symbol: queuedSignal.symbol, side, entry: candleClosePrice, sl: stopLoss, tp: primaryTp, size: sizeValidated })
+            execResult = { entry: entryRes, tpsl: tpSlRes }
+          }
+        }
+      } catch (e: any) {
+        execResult = { success: false, error: e?.message }
+      }
+    }
+
     // Update queue status
     await updateQueueSignalStatus(queuedSignal.id!, 'PROCESSED');
 
@@ -136,6 +168,7 @@ async function processQueuedSignal(queuedSignal: SignalQueueRecord) {
       status: 'PROCESSED',
       entry_time: new Date(signalTime).toISOString(),
       entry_price: candleClosePrice,
+      executed: execResult,
     };
 
   } catch (error: any) {
