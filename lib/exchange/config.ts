@@ -14,6 +14,11 @@ function env(key: string, fallback?: string): string | undefined {
   return (v === undefined || v === '') ? fallback : v
 }
 
+export function getEnv(key: string, fallback?: string): string {
+  const v = process.env[key]
+  return (v === undefined || v === '') ? (fallback || '') : v
+}
+
 export function getConfig(): AppConfig {
   const paper = (env('OKX_PAPER', 'true') === 'true')
   const demoHeader = env('OKX_DEMO', paper ? '1' : '0') === '1'

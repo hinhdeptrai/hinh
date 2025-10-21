@@ -201,6 +201,27 @@ export async function fetchAccountBalanceUSDT(): Promise<number> {
   return Number(usdt?.cashBal || usdt?.eq || 0)
 }
 
+export async function fetchCurrentPrice(symbol: string): Promise<number | null> {
+  try {
+    const resp = await okxFetch(`/api/v5/market/ticker?instId=${symbol}`, 'GET')
+    
+    if (!resp || resp.code !== '0') {
+      throw new Error(`API Error: ${resp?.msg || 'Unknown error'}`)
+    }
+
+    const ticker = resp.data?.[0]
+    if (!ticker) {
+      throw new Error('No ticker data found')
+    }
+
+    // Use last price as current price
+    return parseFloat(ticker.last)
+  } catch (error) {
+    console.error(`[OKX] Failed to fetch price for ${symbol}:`, error)
+    return null
+  }
+}
+
 export function computePositionSizeByRisk(params: {
   balanceUSDT: number
   riskPercent: number // e.g. 0.01 for 1%

@@ -161,6 +161,7 @@ CREATE TABLE IF NOT EXISTS signal_history (
   signal_type ENUM('BUY','SELL') NOT NULL,
   indicator_type VARCHAR(50) DEFAULT 'FIBONACCI_ALGO',
   entry_price DECIMAL(20, 8) NOT NULL,
+  size DECIMAL(20, 8) NULL,
   sl_price DECIMAL(20, 8),
   tp1_price DECIMAL(20, 8),
   tp2_price DECIMAL(20, 8),
@@ -170,6 +171,9 @@ CREATE TABLE IF NOT EXISTS signal_history (
   tp6_price DECIMAL(20, 8),
   outcome ENUM('TP1','TP2','TP3','TP4','TP5','TP6','SL','NONE') DEFAULT 'NONE',
   outcome_price DECIMAL(20, 8),
+  pnl DECIMAL(20, 8) NULL,
+  order_id VARCHAR(64) NULL,
+  exec_mode ENUM('PAPER','LIVE') NULL,
   entry_time BIGINT NOT NULL COMMENT 'Unix timestamp in milliseconds',
   exit_time BIGINT NULL COMMENT 'Unix timestamp in milliseconds',
   bars_duration INT,
@@ -194,18 +198,17 @@ export async function ensureSignalHistorySchema() {
     const tables = await query(`SHOW TABLES LIKE 'signal_history'`);
 
     if (Array.isArray(tables) && tables.length > 0) {
-      // Table exists, check if it has indicator_type column
-      const columns = await query(`SHOW COLUMNS FROM signal_history LIKE 'indicator_type'`);
-
-      if (Array.isArray(columns) && columns.length === 0) {
-        // Column missing, drop and recreate table
-        console.log('signal_history missing indicator_type column, recreating...');
-        await query(`DROP TABLE signal_history`);
-        await query(CREATE_SIGNAL_HISTORY_TABLE);
-        console.log('signal_history table recreated with indicator_type');
-      } else {
-        console.log('signal_history table exists with indicator_type');
+      // Ensure required columns exist
+      const ensureCol = async (col: string, defSql: string) => {
+        const c = await query<any[]>(`SHOW COLUMNS FROM signal_history LIKE '${col}'`)
+        if (!Array.isArray(c) || c.length === 0) {
+          await query(`ALTER TABLE signal_history ADD COLUMN ${defSql}`)
+          console.log(`signal_history added column: ${col}`)
+        }
       }
+      await ensureCol('indicator_type', "indicator_type VARCHAR(50) DEFAULT 'FIBONACCI_ALGO'")
+      await ensureCol('size', 'size DECIMAL(20,8) NULL')
+      await ensureCol('pnl', 'pnl DECIMAL(20,8) NULL')
     } else {
       // Table doesn't exist, create it
       await query(CREATE_SIGNAL_HISTORY_TABLE);
@@ -224,6 +227,7 @@ export type SignalHistoryRecord = {
   signal_type: 'BUY' | 'SELL';
   indicator_type?: 'FIBONACCI_ALGO' | 'RSI_MACD_EMA' | 'MACD_BB' | 'RSI_VOLUME_BB' | 'SUPERTREND_EMA' | 'EMA_CROSS_RSI';
   entry_price: number;
+  size?: number;
   sl_price?: number;
   tp1_price?: number;
   tp2_price?: number;
@@ -233,6 +237,7 @@ export type SignalHistoryRecord = {
   tp6_price?: number;
   outcome?: 'TP1' | 'TP2' | 'TP3' | 'TP4' | 'TP5' | 'TP6' | 'SL' | 'NONE';
   outcome_price?: number;
+  pnl?: number;
   entry_time: Date | string;
   exit_time?: Date | string | null;
   bars_duration?: number;
@@ -254,11 +259,11 @@ export async function storeSignal(record: SignalHistoryRecord) {
 
   const sql = `
     INSERT INTO signal_history (
-      symbol, timeframe, signal_type, indicator_type, entry_price,
+      symbol, timeframe, signal_type, indicator_type, entry_price, size,
       sl_price, tp1_price, tp2_price, tp3_price, tp4_price, tp5_price, tp6_price,
-      outcome, outcome_price, entry_time, exit_time, bars_duration,
+      outcome, outcome_price, pnl, entry_time, exit_time, bars_duration,
       is_fresh, volume_confirmed, binance_candle_time
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
   return await query(sql, [
     record.symbol,
@@ -266,6 +271,7 @@ export async function storeSignal(record: SignalHistoryRecord) {
     record.signal_type,
     record.indicator_type || 'FIBONACCI_ALGO',
     record.entry_price,
+    record.size || null,
     record.sl_price || null,
     record.tp1_price || null,
     record.tp2_price || null,
@@ -275,6 +281,7 @@ export async function storeSignal(record: SignalHistoryRecord) {
     record.tp6_price || null,
     record.outcome || 'NONE',
     record.outcome_price || null,
+    record.pnl || null,
     toTimestamp(record.entry_time),
     toTimestamp(record.exit_time),
     record.bars_duration || null,
@@ -282,6 +289,28 @@ export async function storeSignal(record: SignalHistoryRecord) {
     record.volume_confirmed || false,
     toTimestamp(record.binance_candle_time),
   ]);
+}
+
+export async function updateSignalSize(
+  symbol: string,
+  timeframe: string,
+  entryTime: Date | string | number,
+  size: number,
+) {
+  await ensureSignalHistorySchema();
+  const toTimestamp = (date: Date | string | number): number => {
+    if (typeof date === 'number') return date;
+    const d = typeof date === 'string' ? new Date(date) : date;
+    return d.getTime();
+  };
+  const entryTimeMs = toTimestamp(entryTime);
+  const sql = `
+    UPDATE signal_history
+    SET size = ?
+    WHERE symbol = ? AND timeframe = ? AND entry_time = ?
+    LIMIT 1
+  `;
+  return await query(sql, [size, symbol, timeframe, entryTimeMs]);
 }
 
 export async function updateSignalOutcome(
@@ -595,6 +624,17 @@ export async function updateQueueSignalStatus(
     WHERE id = ?
   `;
   return await query(sql, [status, errorMessage || null, id]);
+}
+
+// Delete all PENDING signals for a symbol (and optional timeframe)
+export async function deletePendingQueueSignals(symbol: string, timeframe?: string) {
+  await ensureSignalQueueSchema();
+  if (timeframe) {
+    const sql = `DELETE FROM signal_queue WHERE symbol = ? AND timeframe = ? AND status = 'PENDING'`;
+    return await query(sql, [symbol, timeframe]);
+  }
+  const sql = `DELETE FROM signal_queue WHERE symbol = ? AND status = 'PENDING'`;
+  return await query(sql, [symbol]);
 }
 
 export async function getQueueStats() {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { IndicatorFactory, fetchKlines } from "@/lib/indicators/factory"
+import { StrategyFactory } from "@/lib/strategy/base"
 import type { IndicatorType } from "@/lib/indicators/types"
 
 export const dynamic = "force-dynamic"
@@ -7,12 +8,13 @@ export const dynamic = "force-dynamic"
 /**
  * POST /api/scan-v2
  *
- * Multi-indicator scanner endpoint
+ * Multi-indicator scanner endpoint with breakout strategy support
  *
  * Body: {
  *   symbol: string,
  *   timeframe: string,
  *   indicator_type?: string,  // Default: FIBONACCI_ALGO
+ *   strategy?: string,        // New: 'breakout-atr' for breakout strategy
  *   limit?: number
  * }
  */
@@ -23,6 +25,7 @@ export async function POST(req: NextRequest) {
       symbol,
       timeframe,
       indicator_type = 'FIBONACCI_ALGO',
+      strategy = null,
       limit = 500
     } = body
 
@@ -33,34 +36,58 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Validate indicator type
-    let indicator
-    try {
-      indicator = IndicatorFactory.create(indicator_type as IndicatorType)
-    } catch (e: any) {
-      return NextResponse.json(
-        { error: `Invalid indicator type: ${e.message}` },
-        { status: 400 }
-      )
-    }
-
     // Fetch kline data from Binance
     const klineData = await fetchKlines(symbol.toUpperCase(), timeframe, limit)
 
-    // Analyze with selected indicator
-    const result = await IndicatorFactory.analyzeWithIndicator(
-      indicator_type as IndicatorType,
-      klineData,
-      symbol.toUpperCase(),
-      timeframe
-    )
+    // Use strategy if specified, otherwise use indicator
+    if (strategy) {
+      try {
+        const strategyInstance = StrategyFactory.create(strategy)
+        const result = await strategyInstance.analyze({
+          symbol: symbol.toUpperCase(),
+          timeframe,
+          klines: klineData
+        })
 
-    return NextResponse.json({
-      success: true,
-      indicator_type,
-      indicator_name: indicator.getName(),
-      data: result,
-    })
+        return NextResponse.json({
+          success: true,
+          strategy,
+          strategy_name: strategyInstance.name,
+          data: result,
+        })
+      } catch (e: any) {
+        return NextResponse.json(
+          { error: `Invalid strategy: ${e.message}` },
+          { status: 400 }
+        )
+      }
+    } else {
+      // Validate indicator type
+      let indicator
+      try {
+        indicator = IndicatorFactory.create(indicator_type as IndicatorType)
+      } catch (e: any) {
+        return NextResponse.json(
+          { error: `Invalid indicator type: ${e.message}` },
+          { status: 400 }
+        )
+      }
+
+      // Analyze with selected indicator
+      const result = await IndicatorFactory.analyzeWithIndicator(
+        indicator_type as IndicatorType,
+        klineData,
+        symbol.toUpperCase(),
+        timeframe
+      )
+
+      return NextResponse.json({
+        success: true,
+        indicator_type,
+        indicator_name: indicator.getName(),
+        data: result,
+      })
+    }
   } catch (e: any) {
     console.error('Scan v2 error:', e)
     return NextResponse.json(
@@ -71,7 +98,7 @@ export async function POST(req: NextRequest) {
 }
 
 /**
- * GET /api/scan-v2?symbol=BTCUSDT&timeframe=4h&indicator_type=MACD_BB
+ * GET /api/scan-v2?symbol=BTCUSDT&timeframe=4h&indicator_type=MACD_BB&strategy=breakout-atr
  *
  * Alternative GET endpoint for single symbol scan
  */
@@ -81,6 +108,7 @@ export async function GET(req: NextRequest) {
     const symbol = searchParams.get('symbol')
     const timeframe = searchParams.get('timeframe')
     const indicator_type = searchParams.get('indicator_type') || 'FIBONACCI_ALGO'
+    const strategy = searchParams.get('strategy')
     const limit = Number(searchParams.get('limit') || 500)
 
     if (!symbol || !timeframe) {
@@ -90,34 +118,58 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // Validate indicator type
-    let indicator
-    try {
-      indicator = IndicatorFactory.create(indicator_type as IndicatorType)
-    } catch (e: any) {
-      return NextResponse.json(
-        { error: `Invalid indicator type: ${e.message}` },
-        { status: 400 }
-      )
-    }
-
     // Fetch kline data
     const klineData = await fetchKlines(symbol.toUpperCase(), timeframe, limit)
 
-    // Analyze
-    const result = await IndicatorFactory.analyzeWithIndicator(
-      indicator_type as IndicatorType,
-      klineData,
-      symbol.toUpperCase(),
-      timeframe
-    )
+    // Use strategy if specified, otherwise use indicator
+    if (strategy) {
+      try {
+        const strategyInstance = StrategyFactory.create(strategy)
+        const result = await strategyInstance.analyze({
+          symbol: symbol.toUpperCase(),
+          timeframe,
+          klines: klineData
+        })
 
-    return NextResponse.json({
-      success: true,
-      indicator_type,
-      indicator_name: indicator.getName(),
-      data: result,
-    })
+        return NextResponse.json({
+          success: true,
+          strategy,
+          strategy_name: strategyInstance.name,
+          data: result,
+        })
+      } catch (e: any) {
+        return NextResponse.json(
+          { error: `Invalid strategy: ${e.message}` },
+          { status: 400 }
+        )
+      }
+    } else {
+      // Validate indicator type
+      let indicator
+      try {
+        indicator = IndicatorFactory.create(indicator_type as IndicatorType)
+      } catch (e: any) {
+        return NextResponse.json(
+          { error: `Invalid indicator type: ${e.message}` },
+          { status: 400 }
+        )
+      }
+
+      // Analyze
+      const result = await IndicatorFactory.analyzeWithIndicator(
+        indicator_type as IndicatorType,
+        klineData,
+        symbol.toUpperCase(),
+        timeframe
+      )
+
+      return NextResponse.json({
+        success: true,
+        indicator_type,
+        indicator_name: indicator.getName(),
+        data: result,
+      })
+    }
   } catch (e: any) {
     console.error('Scan v2 GET error:', e)
     return NextResponse.json(

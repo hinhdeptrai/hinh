@@ -116,6 +116,7 @@ async function processQueuedSignal(queuedSignal: SignalQueueRecord) {
       signal_type: queuedSignal.signal_type,
       indicator_type: queuedSignal.indicator_type,
       entry_price: candleClosePrice, // Use actual close price from Binance
+      size: undefined,
       sl_price: queuedSignal.sl_price,
       tp1_price: queuedSignal.tp1_price,
       tp2_price: queuedSignal.tp2_price,
@@ -156,13 +157,16 @@ async function processQueuedSignal(queuedSignal: SignalQueueRecord) {
             execResult = { skipped: true, reason: 'position_open' }
           } else {
             const sizeRisk = await computePositionSizeByRiskAsync({ symbol: queuedSignal.symbol, balanceUSDT: balance, riskPercent, entry: candleClosePrice, stop })
-            const lev = getLeverage()
+            const lev = 5 // enforce 5x leverage
             const sizeLev = clampByLeverageNotional({ balanceUSDT: balance, leverage: lev, entry: candleClosePrice, size: sizeRisk })
             const sizeClamped = clampSize(sizeLev)
             const { ok, size: sizeValidated } = validateOrderSize(sizeClamped)
             if (ok && sizeValidated > 0) {
               // 1) place entry
               const entryRes = await placeOrder({ symbol: queuedSignal.symbol, side, type: 'market', size: sizeValidated, reduceOnly: false })
+              // Update history with actual trade size
+              await (await import('@/lib/db')).updateSignalSize(queuedSignal.symbol, queuedSignal.timeframe, new Date(signalTime), sizeValidated)
+
               // 2) place TP/SL
               const { takeProfits, stopLoss } = computeTpSlPrices({ side, entry: candleClosePrice, sl: stop })
               const primaryTp = takeProfits[0]

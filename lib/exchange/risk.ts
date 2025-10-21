@@ -83,4 +83,22 @@ export async function checkMaxPositions(maxPositions = 3): Promise<boolean> {
   }
 }
 
+// Margin and notional checks
+export function computeNotional(entry: number, size: number): number {
+  if (!Number.isFinite(entry) || !Number.isFinite(size)) return 0
+  return Math.max(0, entry * size)
+}
+
+export function computeUsedMargin(notional: number, leverage: number): number {
+  if (!Number.isFinite(notional) || !Number.isFinite(leverage) || leverage <= 0) return 0
+  return notional / leverage
+}
+
+export function canOpenWithMargin(params: { equityUSDT: number; entry: number; size: number; leverage: number }): { ok: boolean; notional: number; usedMargin: number } {
+  const notional = computeNotional(params.entry, params.size)
+  const usedMargin = computeUsedMargin(notional, params.leverage)
+  const ok = usedMargin <= params.equityUSDT && notional <= params.equityUSDT * params.leverage
+  return { ok, notional, usedMargin }
+}
+
 
